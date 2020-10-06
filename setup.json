@@ -10,6 +10,9 @@
     "entry_points": {
         "aiida.calculations": [
             "environ.pw = aiida_environ.calculations.pw:EnvPwCalculation"
+        ],
+        "aiida.parsers": [
+            "environ.pw = aiida_environ.parsers.pw:EnvPwParser"
         ]
     },
     "extras_require": {

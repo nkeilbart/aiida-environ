@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from aiida import orm
 from aiida.common.folders import Folder
 from aiida.common.datastructures import CalcInfo, CodeInfo
@@ -14,19 +15,25 @@ class EnvPwCalculation(PwCalculation):
         """Define the process specification."""
         # yapf: disable
         super().define(spec)
+        spec.input('metadata.options.parser_name', valid_type=str, default='environ.pw')
         spec.input('environ_parameters', valid_type=orm.Dict,
             help='The input parameters that are to be used to construct the input file.')
-        spec.output('output_environ_parameters', valid_type=orm.Dict,
-            help='The `output_environ_parameters` output node of the successful calculation.')
+        # spec.output('output_environ_parameters', valid_type=orm.Dict,
+        #     help='The `output_environ_parameters` output node of the successful calculation.')
 
     def prepare_for_submission(self, folder: Folder) -> CalcInfo:
         calcinfo = BasePwCpInputGenerator.prepare_for_submission(self, folder)
-        calcinfo.cmdline_params.append('--environ')
+        # TODO consider lists of length > 1
+        codeinfo = calcinfo.codes_info[0]
+        # prepend the command line parametes with --environ (so that it appears just after the executable call)
+        # NOTE this might not always be the case
+        codeinfo.cmdline_params.insert(0, '--environ')
+
         if 'settings' in self.inputs:
             settings = _uppercase_dict(self.inputs.settings.get_dict(), dict_name='settings')
         else:
             settings = {}
-        input_filecontent = self._generate_environinputdata(self.inputs.parameters, self.inputs.structure, settings)
+        input_filecontent = self._generate_environinputdata(self.inputs.environ_parameters, self.inputs.structure, settings)
 
         # write the environ input file (name is fixed)
         with folder.open('environ.in', 'w') as handle:
@@ -44,7 +51,7 @@ class EnvPwCalculation(PwCalculation):
         # I put the first-level keys as uppercase (i.e., namelist and card names)
         # and the second-level keys as lowercase
         # (deeper levels are unchanged)
-        input_params = _uppercase_dict(parameters.get_dict(), dict_name='parameters')
+        input_params = _uppercase_dict(parameters.get_dict(), dict_name='environ_parameters')
         input_params = {k: _lowercase_dict(v, dict_name=k) for k, v in input_params.items()}
 
         # set namelists_toprint explicitly, environ has 3 standard namelists which are expected
@@ -55,7 +62,7 @@ class EnvPwCalculation(PwCalculation):
         # we use the alphabetical order as in the inputdata generation
         kind_names = sorted([kind.name for kind in structure.kinds])
         mapping_species = {kind_name: (index + 1) for index, kind_name in enumerate(kind_names)}
-        
+
         for namelist_name in namelists_toprint:
             inputfile += '&{0}\n'.format(namelist_name)
             # namelist content; set to {} if not present, so that we leave an empty namelist
