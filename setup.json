@@ -13,6 +13,10 @@
         ],
         "aiida.parsers": [
             "environ.pw = aiida_environ.parsers.pw:EnvPwParser"
+        ],
+        "aiida.workflows": [
+            "environ.pw.base = aiida_environ.workflows.pw.base:EnvPwBaseWorkChain",
+            "environ.pw.relax = aiida_environ.workflows.pw.relax:EnvPwRelaxWorkChain"
         ]
     },
     "extras_require": {
