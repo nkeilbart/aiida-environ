@@ -16,7 +16,8 @@
         ],
         "aiida.workflows": [
             "environ.pw.base = aiida_environ.workflows.pw.base:EnvPwBaseWorkChain",
-            "environ.pw.relax = aiida_environ.workflows.pw.relax:EnvPwRelaxWorkChain"
+            "environ.pw.relax = aiida_environ.workflows.pw.relax:EnvPwRelaxWorkChain",
+            "environ.pw.solvation = aiida_environ.workflows.pw.solvation:PwSolvationWorkChain"
         ]
     },
     "extras_require": {
