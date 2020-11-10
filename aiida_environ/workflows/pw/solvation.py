@@ -5,18 +5,14 @@ from aiida.common import AttributeDict, exceptions
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 
 EnvPwCalculation = CalculationFactory('environ.pw')
-EnvPwBaseWorkChain = WorkflowFactory('environ.pw.base')
 
 class PwSolvationWorkChain(WorkChain):
 
     @classmethod
     def define(cls, spec):
         super().define(spec)
-        spec.expose_inputs(EnvPwBaseWorkChain, namespace='base',
-            exclude=('clean_workdir', 'pw.parent_folder'),
-            namespace_options={'help': 'Inputs for the `PwBaseWorkChain`.'})
-        spec.input('clean_workdir', valid_type=Bool, default=lambda: Bool(False),
-            help='If `True`, work directories of all called calculation will be cleaned at the end of execution.')
+        spec.expose_inputs(EnvPwCalculation, namespace='pw',
+            namespace_options={'help': 'Inputs for the `EnvPwCalculation`.'})
         spec.outline(
             cls.setup,
             cls.vacuum,
@@ -29,12 +25,12 @@ class PwSolvationWorkChain(WorkChain):
         pass
     
     def vacuum(self):
-        inputs = AttributeDict(self.exposed_inputs(EnvPwBaseWorkChain, namespace='base'))
+        inputs = AttributeDict(self.exposed_inputs(EnvPwCalculation, namespace='pw'))
         
-        inputs.pw.parameters = inputs.pw.parameters.get_dict()
+        inputs.parameters = inputs.parameters.get_dict()
 
         # Create parameter dictionaries
-        inputs.pw.parameters.setdefault('CONTROL', {
+        inputs.parameters.setdefault('CONTROL', {
             'calculation': 'scf', # Also test with calculation relax
             'restart_mode': 'from_scratch',
             'tprnfor': True
@@ -44,15 +40,15 @@ class PwSolvationWorkChain(WorkChain):
             'ion_dynamics': 'bfgs'
         })
         """
-        inputs.pw.environ_parameters = inputs.pw.environ_parameters.get_dict()
+        inputs.environ_parameters = inputs.environ_parameters.get_dict()
 
-        inputs.pw.environ_parameters.setdefault('ENVIRON', {
+        inputs.environ_parameters.setdefault('ENVIRON', {
             'verbose': 0,
             'environ_thr': 1e-1,
             'environ_type': 'vacuum',
             'env_electrostatic': True
         })
-        inputs.pw.environ_parameters.setdefault('ELECTROSTATIC', {
+        inputs.environ_parameters.setdefault('ELECTROSTATIC', {
             # 'pbc_correction': 'parabolic',
             # 'pbc_dim': 0,
             # 'tol': 1e-11,
@@ -68,9 +64,9 @@ class PwSolvationWorkChain(WorkChain):
         # # Set the `CALL` link label
         # inputs.metadata.call_link_label = 'iteration_{:02d}'.format(self.ctx.iteration)
 
-        inputs = prepare_process_inputs(EnvPwBaseWorkChain, inputs)
+        inputs = prepare_process_inputs(EnvPwCalculation, inputs)
         running = self.submit(EnvPwCalculation, **inputs)
-        self.report('launching EnvPwBaseWorkChain<{}>'.format(running.pk))
+        self.report('launching EnvPwCalculation<{}>'.format(running.pk))
         return ToContext(workchains = append_(running))
     
     def solution(self):
