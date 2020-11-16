@@ -1,6 +1,6 @@
 from aiida.engine import WorkChain, ToContext, append_
 from aiida.plugins import CalculationFactory, WorkflowFactory
-from aiida.orm import StructureData, Bool, Str, Int, Float
+from aiida.orm import StructureData, Bool, Str, Int, Float, Code
 from aiida.common import AttributeDict, exceptions
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 
@@ -27,19 +27,6 @@ class PwSolvationWorkChain(WorkChain):
     def vacuum(self):
         inputs = AttributeDict(self.exposed_inputs(EnvPwCalculation, namespace='pw'))
         
-        inputs.parameters = inputs.parameters.get_dict()
-
-        # Create parameter dictionaries
-        inputs.parameters.setdefault('CONTROL', {
-            'calculation': 'scf', # Also test with calculation relax
-            'restart_mode': 'from_scratch',
-            'tprnfor': True
-        })
-        """ # Include this when calc is relax
-        inputs.pw.parameters.setdefault('IONS', {
-            'ion_dynamics': 'bfgs'
-        })
-        """
         inputs.environ_parameters = inputs.environ_parameters.get_dict()
 
         inputs.environ_parameters.setdefault('ENVIRON', {
@@ -70,7 +57,29 @@ class PwSolvationWorkChain(WorkChain):
         return ToContext(workchains = append_(running))
     
     def solution(self):
-        pass
+        inputs = AttributeDict(self.exposed_inputs(EnvPwCalculation, namespace='pw'))
+
+        inputs.environ_parameters = inputs.environ_parameters.get_dict()
+
+        inputs.environ_parameters.setdefault('ENVIRON', {
+            'verbose': 0,
+            'environ_thr': 1e-1,
+            'environ_type': 'water',
+            'env_electrostatic': True
+        })
+        inputs.environ_parameters.setdefault('ELECTROSTATIC', {
+            # 'pbc_correction': 'parabolic',
+            # 'pbc_dim': 0,
+            # 'tol': 1e-11,
+            # 'mix': 0.6,
+            'solver': 'cg',
+            'auxiliary': 'none'
+        })
+
+        inputs = prepare_process_inputs(EnvPwCalculation, inputs)
+        running = self.submit(EnvPwCalculation, **inputs)
+        self.report('launching EnvPwCalculation<{}>'.format(running.pk))
+        return ToContext(workchains = append_(running))
     
     def post_processing(self): 
         # subtract energy in water calculation by energy in vacuum calculation
