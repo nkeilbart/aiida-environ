@@ -25,6 +25,10 @@ parameters = {'SYSTEM': {
     'diagonalization': 'cg',
     'mixing_beta': 0.4,
     'electron_maxstep': 200
+}, 'CONTROL': {
+    'calculation': 'scf',
+    'restart_mode': 'from_scratch',
+    'tprnfor': True
 }
 }
 

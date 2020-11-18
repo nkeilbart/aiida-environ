@@ -83,4 +83,9 @@ class PwSolvationWorkChain(WorkChain):
     
     def post_processing(self): 
         # subtract energy in water calculation by energy in vacuum calculation
-        pass
+        workchain_volume = self.ctx.workchains[0]
+        workchain_solution = self.ctx.workchains[1]
+        self.ctx.energy_threshold_vacuum = workchain_volume.outputs.output_parameters.get_dict()['energy_threshold']
+        self.ctx.energy_threshold_solvation = workchain_solution.outputs.output_parameters.get_dict()['energy_threshold']
+        energy_difference = self.ctx.energy_threshold_solution - self.ctx.energy_threshold_vacuum
+        self.out('solvation_energy', energy_difference)
