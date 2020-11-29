@@ -1,10 +1,14 @@
-from aiida.engine import WorkChain, ToContext, append_
+from aiida.engine import WorkChain, ToContext, append_, calcfunction
 from aiida.plugins import CalculationFactory, WorkflowFactory
 from aiida.orm import StructureData, Bool, Str, Int, Float, Code
 from aiida.common import AttributeDict, exceptions
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 
 EnvPwCalculation = CalculationFactory('environ.pw')
+
+@calcfunction
+def subtract_energy(x, y):
+    return x - y
 
 class PwSolvationWorkChain(WorkChain):
 
@@ -17,7 +21,8 @@ class PwSolvationWorkChain(WorkChain):
             cls.setup,
             cls.vacuum,
             cls.solution,
-            cls.post_processing
+            cls.post_processing,
+            cls.produce_result
         )
         spec.output('solvation_energy', valid_type = Float)
 
@@ -83,9 +88,12 @@ class PwSolvationWorkChain(WorkChain):
     
     def post_processing(self): 
         # subtract energy in water calculation by energy in vacuum calculation
-        workchain_volume = self.ctx.workchains[0]
+        workchain_vacuum = self.ctx.workchains[0]
         workchain_solution = self.ctx.workchains[1]
-        self.ctx.energy_threshold_vacuum = workchain_volume.outputs.output_parameters.get_dict()['energy_threshold']
-        self.ctx.energy_threshold_solvation = workchain_solution.outputs.output_parameters.get_dict()['energy_threshold']
-        energy_difference = self.ctx.energy_threshold_solution - self.ctx.energy_threshold_vacuum
-        self.out('solvation_energy', energy_difference)
+        e_solvent = workchain_vacuum.outputs.output_parameters.get_dict()['energy']
+        e_vacuum = workchain_solution.outputs.output_parameters.get_dict()['energy']
+        self.ctx.energy_difference = subtract_energy(Float(e_solvent), Float(e_vacuum))
+    
+    def produce_result(self):
+        self.out('solvation_energy', self.ctx.energy_difference)
+        
