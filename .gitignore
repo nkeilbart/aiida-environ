@@ -139,3 +139,4 @@ cython_debug/
 
 # project folders to ignore
 testing/
+tests/
