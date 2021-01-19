@@ -41,9 +41,8 @@
     },
     "install_requires": [
         "aiida_core[atomic_tools]~=1.2",
-        "aiida_quantumespresso~=3.0",
+        "aiida_quantumespresso~=3.2",
         "packaging",
-        "qe-tools~=1.1",
         "xmlschema~=1.2"
     ],
     "license": "",
