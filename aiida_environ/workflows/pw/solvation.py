@@ -54,6 +54,7 @@ class PwSolvationWorkChain(WorkChain):
         inputs.environ_parameters['ENVIRON'].setdefault('verbose', 0)
         inputs.environ_parameters['ENVIRON'].setdefault('environ_thr', 1e-1)
         inputs.environ_parameters['ENVIRON'].setdefault('environ_type', 'vacuum')
+        inputs.environ_parameters['ENVIRON'].setdefault('environ_restart', False)
         inputs.environ_parameters['ENVIRON'].setdefault('env_electrostatic', True)
 
         inputs.environ_parameters.setdefault('ELECTROSTATIC', {})
@@ -82,6 +83,7 @@ class PwSolvationWorkChain(WorkChain):
         inputs.environ_parameters['ENVIRON'].setdefault('verbose', 0)
         inputs.environ_parameters['ENVIRON'].setdefault('environ_thr', 1e-1)
         inputs.environ_parameters['ENVIRON'].setdefault('environ_type', 'water')
+        inputs.environ_parameters['ENVIRON'].setdefault('environ_restart', False)
         inputs.environ_parameters['ENVIRON'].setdefault('env_electrostatic', True)
 
         inputs.environ_parameters.setdefault('ELECTROSTATIC', {})
