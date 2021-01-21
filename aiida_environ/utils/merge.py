@@ -9,5 +9,10 @@ def recursive_update_dict(d1: dict, d2: dict) -> None:
         if k not in d1:
             d1[k] = d2[k]
     for k in d1:
-        if k in d2:
-            d1[k].update(d2[k])
+        if k not in d2:
+            continue
+        for ki in d2[k]:
+            if ki in d1[k]:
+                d1[k][ki].update(d2[k][ki])
+            else:
+                d1[k][ki] = d2[k][ki]
