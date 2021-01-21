@@ -45,10 +45,8 @@ class PwSolvationWorkChain(WorkChain):
         inputs.environ_parameters = inputs.environ_parameters.get_dict()
 
         # If a custom `environ_vacuum` dict exists, copy its values over here
-        self.report(inputs.environ_parameters)
         if 'environ_vacuum' in self.inputs:
             recursive_update_dict(inputs.environ_parameters, self.inputs.environ_vacuum.get_dict())
-        self.report(inputs.environ_parameters)
 
         inputs.environ_parameters.setdefault('ENVIRON', {})
         inputs.environ_parameters['ENVIRON'].setdefault('verbose', 0)
@@ -60,8 +58,6 @@ class PwSolvationWorkChain(WorkChain):
         inputs.environ_parameters.setdefault('ELECTROSTATIC', {})
         inputs.environ_parameters['ELECTROSTATIC'].setdefault('solver', 'direct')
         inputs.environ_parameters['ELECTROSTATIC'].setdefault('auxiliary', 'none')
-
-        self.report(inputs.environ_parameters)
 
         inputs = prepare_process_inputs(EnvPwCalculation, inputs)
         running = self.submit(EnvPwCalculation, **inputs)
@@ -76,7 +72,7 @@ class PwSolvationWorkChain(WorkChain):
         inputs.environ_parameters = inputs.environ_parameters.get_dict()
 
         # If a custom `environ_solution` dict exists, copy its values over here
-        if 'environ_solution' in inputs:
+        if 'environ_solution' in self.inputs:
             recursive_update_dict(inputs.environ_parameters, self.inputs.environ_solution.get_dict())
 
         inputs.environ_parameters.setdefault('ENVIRON', {})

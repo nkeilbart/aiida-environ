@@ -138,5 +138,5 @@ dmypy.json
 cython_debug/
 
 # project folders to ignore
-testing/
-tests/
+# for now ignore examples folder
+examples/
