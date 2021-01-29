@@ -140,3 +140,4 @@ cython_debug/
 # project folders to ignore
 # for now ignore examples folder
 examples/
+aiida_environ/tests/
