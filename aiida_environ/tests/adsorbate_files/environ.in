@@ -1,0 +1,36 @@
+&ENVIRON
+    !
+    verbose = 1,
+    environ_restart = .false.,
+    !
+    environ_type = 'water',
+    environ_thr = 10
+    env_static_permittivity = 1,
+    system_axis = 3,
+    system_dim = 2
+    !
+    temperature = 300,
+/
+ &BOUNDARY
+    solvent_mode = 'system',
+    !rhomin = 0.0013,
+    !rhomax = 0.01025,
+    solvent_radius = 2.5
+    filling_threshold = 0.70
+!
+/
+ &ELECTROSTATIC
+    !
+    problem = "generalized"
+    solver = "iterative"
+    auxiliary = "full"
+    inner_tol = 1e-20,
+    inner_maxstep = 1000,
+    !
+    tol = 1e-14,
+    maxstep = 500,
+    !
+    pbc_correction = 'parabolic',
+    pbc_dim = 2,
+    pbc_axis = 3,
+/
