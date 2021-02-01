@@ -15,4 +15,4 @@ adsorbate_per_site = [2, 1]
 n = len(points_per_site)
 FOLDER = 'graphs'
 inputs = {points_per_site, adsorbate_per_site, 2, os.path.join(FOLDER, 'hist1.svg'), os.path.join(FOLDER, 'graph1.pdf')}
-adsorbate_possibilities(**inputs)
+adsorbate_possibilities(inputs)
