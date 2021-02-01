@@ -114,8 +114,8 @@ def adsorbate_possibilities(points_per_site, adsorbate_per_site):
     g = Graph()
     # note that the current implementation clones the configuration list (deepcopy) which may get expensive but for our purposes should be fine
     occ_list = list(o)
-    print(len(occ_list))
-    #print(occ_list)
+    print('Length:', len(occ_list))
+    print(occ_list)
     vertices = list(g.add_vertex(len(occ_list)))
     v_prop = g.new_vertex_property("string")
     # again, here things get expensive if we take the difference each time but for these sizes it's okay
@@ -136,13 +136,13 @@ def adsorbate_possibilities(points_per_site, adsorbate_per_site):
         return out  
 
     max_list = get_vertices_with_degree(vertices, 23)
-    print(len(max_list))
-    for l in max_list:
-        print("VERTEX")
-        print(v_prop[l])
-        print("NEIGHBOURS")
-        for v in l.in_neighbours():
-            print(v_prop[v])
+    # print(len(max_list))
+    # for l in max_list:
+    #     print("VERTEX")
+    #     print(v_prop[l])
+    #     print("NEIGHBOURS")
+    #     for v in l.in_neighbours():
+    #         print(v_prop[v])
                 
     # import matplotlib.pyplot as plt
     # hist = combined_corr_hist(g, "in", "out")
