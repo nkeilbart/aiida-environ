@@ -155,5 +155,5 @@ def adsorbate_possibilities(points_per_site, adsorbate_per_site, max_list_nodes,
     plt.savefig(out_hist)
 
 
-    # pos = sfdp_layout(g)
-    # graph_draw(g, pos, output=out_graph, ink_scale=0.2, output_size=(1000, 1000))
+    pos = sfdp_layout(g)
+    graph_draw(g, pos, output=out_graph, ink_scale=0.2, output_size=(1000, 1000))
