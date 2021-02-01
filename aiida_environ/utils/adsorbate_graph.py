@@ -3,6 +3,7 @@ from graph_tool.all import *
 from graph_tool.correlations import combined_corr_hist
 from typing import List
 from copy import deepcopy
+import matplotlib.pyplot as plt
 
 # points_per_site = [1, 4, 1]
 # adsorbate_per_site = [3, 4, 4]
@@ -105,7 +106,7 @@ class Occupancy:
 
 
 
-def adsorbate_possibilities(points_per_site, adsorbate_per_site, max_list_nodes):
+def adsorbate_possibilities(points_per_site, adsorbate_per_site, max_list_nodes, out_hist, out_graph):
     # combinations = 1
     # for i in range(n):
     #     combinations *= combination_with_repitition(points_per_site[i], adsorbate_per_site[i])
@@ -135,8 +136,8 @@ def adsorbate_possibilities(points_per_site, adsorbate_per_site, max_list_nodes)
                 out.append(v)
         return out  
 
-    max_list = get_vertices_with_degree(vertices, max_list_nodes)
-    print(len(max_list))
+    # max_list = get_vertices_with_degree(vertices, max_list_nodes)
+    # print(len(max_list))
     # for l in max_list:
     #     print("VERTEX")
     #     print(v_prop[l])
@@ -144,16 +145,15 @@ def adsorbate_possibilities(points_per_site, adsorbate_per_site, max_list_nodes)
     #     for v in l.in_neighbours():
     #         print(v_prop[v])
                 
-    # import matplotlib.pyplot as plt
-    # hist = combined_corr_hist(g, "in", "out")
-    # plt.figure()
-    # plt.imshow(hist[0].T, interpolation="nearest", origin="lower")
-    # plt.colorbar()
-    # plt.xlabel("in-degree")
-    # plt.ylabel("out-degree")
-    # plt.tight_layout()
-    # plt.savefig("combined-deg-hist.svg")
+    hist = combined_corr_hist(g, "in", "out")
+    plt.figure()
+    plt.imshow(hist[0].T, interpolation="nearest", origin="lower")
+    plt.colorbar()
+    plt.xlabel("in-degree")
+    plt.ylabel("out-degree")
+    plt.tight_layout()
+    plt.savefig(out_hist)
 
 
     # pos = sfdp_layout(g)
-    # graph_draw(g, pos, output="test.pdf", ink_scale=0.2, output_size=(1000, 1000))
+    # graph_draw(g, pos, output=out_graph, ink_scale=0.2, output_size=(1000, 1000))
