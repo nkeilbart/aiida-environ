@@ -105,7 +105,7 @@ class Occupancy:
 
 
 
-def adsorbate_possibilities(points_per_site, adsorbate_per_site):
+def adsorbate_possibilities(points_per_site, adsorbate_per_site, max_list_nodes):
     # combinations = 1
     # for i in range(n):
     #     combinations *= combination_with_repitition(points_per_site[i], adsorbate_per_site[i])
@@ -114,8 +114,8 @@ def adsorbate_possibilities(points_per_site, adsorbate_per_site):
     g = Graph()
     # note that the current implementation clones the configuration list (deepcopy) which may get expensive but for our purposes should be fine
     occ_list = list(o)
-    print('Length:', len(occ_list))
-    print(occ_list)
+    # print('Length:', len(occ_list))
+    # print(occ_list)
     vertices = list(g.add_vertex(len(occ_list)))
     v_prop = g.new_vertex_property("string")
     # again, here things get expensive if we take the difference each time but for these sizes it's okay
@@ -135,8 +135,8 @@ def adsorbate_possibilities(points_per_site, adsorbate_per_site):
                 out.append(v)
         return out  
 
-    max_list = get_vertices_with_degree(vertices, 23)
-    # print(len(max_list))
+    max_list = get_vertices_with_degree(vertices, 2)
+    print(len(max_list))
     # for l in max_list:
     #     print("VERTEX")
     #     print(v_prop[l])
