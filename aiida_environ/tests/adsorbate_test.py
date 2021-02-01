@@ -12,4 +12,4 @@ from adsorbate_graph import adsorbate_possibilities
 points_per_site = [2, 2]
 adsorbate_per_site = [2, 1]
 n = len(points_per_site)
-adsorbate_possibilities(points_per_site, adsorbate_per_site, 2, 'graps/hist1.svg', 'graphs/graph1.pdf')
+adsorbate_possibilities(points_per_site, adsorbate_per_site, 2, 'graphs/hist1.svg', 'graphs/graph1.pdf')
