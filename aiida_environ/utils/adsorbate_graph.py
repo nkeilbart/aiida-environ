@@ -135,7 +135,7 @@ def adsorbate_possibilities(points_per_site, adsorbate_per_site, max_list_nodes)
                 out.append(v)
         return out  
 
-    max_list = get_vertices_with_degree(vertices, 2)
+    max_list = get_vertices_with_degree(vertices, max_list_nodes)
     print(len(max_list))
     # for l in max_list:
     #     print("VERTEX")
