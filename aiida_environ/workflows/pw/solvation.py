@@ -99,7 +99,7 @@ class PwSolvationWorkChain(WorkChain):
         workchain_solution = self.ctx.workchains[1]
         e_solvent = workchain_vacuum.outputs.output_parameters.get_dict()['energy']
         e_vacuum = workchain_solution.outputs.output_parameters.get_dict()['energy']
-        self.ctx.energy_difference = subtract_energy(Float(e_solvent), Float(e_vacuum))
+        self.ctx.energy_difference = subtract_energy(Float(e_vacuum), Float(e_solvent))
     
     def produce_result(self):
         self.out('solvation_energy', self.ctx.energy_difference)
