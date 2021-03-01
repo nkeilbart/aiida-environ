@@ -1,9 +1,5 @@
-import math
-from graph_tool.all import *
-from graph_tool.correlations import combined_corr_hist
 from typing import List
 from copy import deepcopy
-import matplotlib.pyplot as plt
 
 class Occupancy:
     def __init__(self, pps: List, aps: List):
@@ -68,7 +64,6 @@ class Occupancy:
         assert self.aps == other.aps
         diff = 0
         n = len(self.pps)
-        #print(self.configuration, other.configuration)
         for i in range(n):
             temp = deepcopy(other.configuration)
             for j, val in enumerate(self.configuration[i]):
@@ -76,9 +71,4 @@ class Occupancy:
                     temp[i][temp[i].index(val)] = -1
                 else:
                     diff += 1
-            # for j in range(self.pps[i]):
-            #     cdiff = int((self.configuration[i][j] - other.configuration[i][j]) != 0)
-            #     #print(cdiff, end=' ')
-            #     diff += cdiff
-        #print("diff:", diff)
         return diff

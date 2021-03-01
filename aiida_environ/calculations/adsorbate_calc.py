@@ -1,15 +1,6 @@
-import math
-from graph_tool.all import *
-from graph_tool.correlations import combined_corr_hist
-from typing import List
-from copy import deepcopy
-import matplotlib.pyplot as plt
 from aiida.engine import calcfunction
-import sys
-sys.path.insert(1, '../utils') # Run from aiida-environ/tests folder
-import json
-from occupancy import Occupancy
-import numpy as np
+from aiida_environ.utils.occupancy import Occupancy
+from aiida_environ.utils.graph import Graph
 
 # @calcfunction
 def adsorbate_calculation(site_index, possible_adsorbates, adsorbate_index):
@@ -25,39 +16,29 @@ def adsorbate_calculation(site_index, possible_adsorbates, adsorbate_index):
     g = Graph()
     # note that the current implementation clones the configuration list (deepcopy) which may get expensive but for our purposes should be fine
     occ_list = list(o)
-    vertices = list(g.add_vertex(len(occ_list)))
-    v_prop = g.new_vertex_property("string")
     # again, here things get expensive if we take the difference each time but for these sizes it's okay
-    n_max = 0
     for i, occ1 in enumerate(occ_list):
-        n = 0
-        v_prop[vertices[i]] = occ1.configuration
+        g.add_vertex(occ1)
         for j, occ2 in enumerate(occ_list):
-            if i >= j:
+            if i <= j:
                 continue
             if occ1 - occ2 == 1:
-                g.add_edge(vertices[i], vertices[j])
-                g.add_edge(vertices[j], vertices[i])
-                n += 1
-        n_max = max(n_max, n)
+                g.add_edge(i, j)
 
-    def get_vertices_with_degree(vertex_list, n):
-        out = []
-        for v in vertex_list:
-            if v.in_degree() == n:
-                out.append(v)
-        return out  
+    n_max = 0
+    for v in g.vertices:
+        n_max = max(v.connections, n_max)
 
-    def vertices_to_labels(vertex_list, prop):
+    def vertices_to_labels(vertex_list):
         labels = []
         for v in vertex_list:
-            labels.append(json.loads(prop[v]))
+            labels.append(v.configuration)
         ads_max_list = []
-        for i, x in enumerate(labels):
+        for x in labels:
             list1 = []
-            for j, y in enumerate(x):
+            for y in x:
                 list2 = []
-                for k, z in enumerate(y):
+                for z in y:
                     if (z == 0):
                         list2.append(0)
                     else:
@@ -66,7 +47,7 @@ def adsorbate_calculation(site_index, possible_adsorbates, adsorbate_index):
             ads_max_list.append(list1)
         return ads_max_list
 
-    max_list = get_vertices_with_degree(vertices, n_max)
-    max_list = vertices_to_labels(max_list, v_prop) 
+    max_list = g.get_vertices_with_connections(n_max)
+    max_list = vertices_to_labels(max_list) 
     
     return max_list
