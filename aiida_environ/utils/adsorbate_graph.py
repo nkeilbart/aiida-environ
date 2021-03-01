@@ -120,7 +120,9 @@ def adsorbate_possibilities(points_per_site, adsorbate_per_site, max_list_nodes,
     vertices = list(g.add_vertex(len(occ_list)))
     v_prop = g.new_vertex_property("string")
     # again, here things get expensive if we take the difference each time but for these sizes it's okay
+    n_max = 0
     for i, occ1 in enumerate(occ_list):
+        n = 0
         v_prop[vertices[i]] = occ1.__str__()
         for j, occ2 in enumerate(occ_list):
             if i >= j:
@@ -128,6 +130,8 @@ def adsorbate_possibilities(points_per_site, adsorbate_per_site, max_list_nodes,
             if occ1 - occ2 == 1:
                 g.add_edge(vertices[i], vertices[j])
                 g.add_edge(vertices[j], vertices[i])
+                n += 1
+        n_max = max(n_max, n)
 
     def get_vertices_with_degree(vertices, n):
         out = []
@@ -157,3 +161,4 @@ def adsorbate_possibilities(points_per_site, adsorbate_per_site, max_list_nodes,
 
     pos = sfdp_layout(g)
     graph_draw(g, pos, output=out_graph, ink_scale=0.2, output_size=(1000, 1000))
+    return max_list
