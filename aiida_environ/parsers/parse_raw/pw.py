@@ -6,10 +6,11 @@ specific functionalities. The parsing will try to convert whatever it can in som
 decision doesn't have much structure encoded, [the values are simple ]
 """
 import re
-
+import numpy
 from qe_tools import CONSTANTS
+
 from aiida_quantumespresso.parsers import QEOutputParsingError
-from aiida_quantumespresso.parsers.parse_raw.pw import grep_energy_from_line
+from aiida_quantumespresso.parsers.parse_raw.pw import grep_energy_from_line, detect_important_message
 from aiida_quantumespresso.parsers.parse_raw import convert_qe_time_to_sec
 from aiida_environ.utils.mapping import get_logging_container
 
@@ -142,7 +143,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
         detect_important_message(logs, line)
 
         # to be used for later
-        if 'Carrying out vdW-DF run using the following parameters:' in line:
+        if 'Non-local correlation energy' in line:
             vdw_correction = True
 
         elif 'Cartesian axes' in line:
@@ -415,7 +416,21 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                 try:
 
                     En = float(line.split('=')[1].split('Ry')[0]) * CONSTANTS.ry_to_ev
-                    E_acc = float(data_step[count + 2].split('<')[1].split('Ry')[0]) * CONSTANTS.ry_to_ev
+
+                    # Up till v6.5, the line after total energy would be the Harris-Foulkes estimate, followed by the
+                    # estimated SCF accuracy. However, pw.x v6.6 removed the HF estimate line.
+                    marker = 'estimated scf accuracy'
+                    for i in range(5):
+                        subline = data_step[count + i]
+                        if marker in subline:
+                            try:
+                                E_acc = float(subline.split('<')[1].split('Ry')[0]) * CONSTANTS.ry_to_ev
+                            except Exception:
+                                pass
+                            else:
+                                break
+                    else:
+                        raise KeyError('could not find and parse the line with `{}`'.format(marker))
 
                     for key, value in [['energy', En], ['energy_accuracy', E_acc]]:
                         trajectory_data.setdefault(key, []).append(value)
@@ -477,7 +492,10 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                                 trajectory_data.setdefault('energy_vdw', []).append(value)
                                 break
                         parsed_data['energy_vdw' + units_suffix] = default_energy_units
-                except Exception:
+                except Exception as exception:
+                    import traceback
+                    traceback.print_exc()
+                    print(exception)
                     logs.warning.append('Error while parsing for energy terms.')
 
             elif 'the Fermi energy is' in line:
@@ -527,19 +545,27 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                   in line) or ('Computing stress (Cartesian axis) and pressure' in line):
                 try:
                     stress = []
-                    for k in range(10 + 5 * vdw_correction):
+                    count2 = None
+                    for k in range(15):  # Up to 15 lines later - more than 10 are needed if vdW is turned on
                         if 'P=' in data_step[count + k + 1]:
                             count2 = count + k + 1
-                    if '(Ry/bohr**3)' not in data_step[count2]:
-                        raise QEOutputParsingError('Error while parsing stress: unexpected units.')
-                    for k in range(3):
-                        line2 = data_step[count2 + k + 1].split()
-                        vec = [float(s) * 10**(-9) * CONSTANTS.ry_si / (CONSTANTS.bohr_si)**3 for s in line2[0:3]]
-                        stress.append(vec)
-                    trajectory_data.setdefault('stress', []).append(stress)
-                    parsed_data['stress' + units_suffix] = default_stress_units
+                    if count2 is None:
+                        logs.warning.append(
+                            'Error while parsing stress tensor: '
+                            '"P=" not found within 15 lines from the start of the stress block'
+                        )
+                    else:
+                        if '(Ry/bohr**3)' not in data_step[count2]:
+                            raise QEOutputParsingError('Error while parsing stress: unexpected units.')
+                        for k in range(3):
+                            line2 = data_step[count2 + k + 1].split()
+                            vec = [float(s) * 10**(-9) * CONSTANTS.ry_si / (CONSTANTS.bohr_si)**3 for s in line2[0:3]]
+                            stress.append(vec)
+                        trajectory_data.setdefault('stress', []).append(stress)
+                        parsed_data['stress' + units_suffix] = default_stress_units
                 except Exception:
-                    logs.warning.append('Error while parsing stress tensor.')
+                    import traceback
+                    logs.warning.append('Error while parsing stress tensor: {}'.format(traceback.format_exc()))
 
             # Electronic and ionic dipoles when 'lelfield' was set to True in input parameters
             elif lelfield is True:
@@ -648,36 +674,3 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
     parsed_data['trajectory'] = trajectory_data
 
     return parsed_data, logs
-
-def detect_important_message(logs, line):
-
-    message_map = {
-        'error': {
-            'Maximum CPU time exceeded': 'ERROR_OUT_OF_WALLTIME',
-            'convergence NOT achieved after': 'ERROR_ELECTRONIC_CONVERGENCE_NOT_REACHED',
-            'history already reset at previous step: stopping': 'ERROR_IONIC_CYCLE_BFGS_HISTORY_FAILURE',
-            'problems computing cholesky': 'ERROR_DIAGONALIZATION_CHOLESKY_DECOMPOSITION',
-            'charge is wrong': 'ERROR_CHARGE_IS_WRONG',
-            'not orthogonal operation': 'ERROR_SYMMETRY_NON_ORTHOGONAL_OPERATION',
-            'problems computing cholesky': 'ERROR_COMPUTING_CHOLESKY',
-            'dexx is negative': 'ERROR_DEXX_IS_NEGATIVE',
-            'some nodes have no k-points': 'ERROR_NPOOLS_TOO_HIGH',
-        },
-        'warning': {
-            'Warning:': None,
-            'DEPRECATED:': None,
-        }
-    }
-
-    # Match any known error and warning messages
-    for marker, message in message_map['error'].items():
-        if marker in line:
-            if message is None:
-                message = line
-            logs.error.append(message)
-
-    for marker, message in message_map['warning'].items():
-        if marker in line:
-            if message is None:
-                message = line
-            logs.warning.append(message)
