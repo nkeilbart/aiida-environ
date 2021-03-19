@@ -7,6 +7,7 @@ sys.path.insert(1, '../../calculations')
 from adsorbate_calc import AdsorbateCalculation
 
 EnvPwCalculation = CalculationFactory('environ.pw')
+# TODO copy the way that relax does this: expose inputs to base workchain instead of envpwcalc - see the notes I'll send separately
 
 class AdsorbateSimulation(WorkChain):
     @classmethod

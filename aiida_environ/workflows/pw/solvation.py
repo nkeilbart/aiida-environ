@@ -23,6 +23,7 @@ class PwSolvationWorkChain(WorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
+        # TODO call the base workchain instead of envpwcalculation
         spec.expose_inputs(EnvPwCalculation, namespace='pw',
             namespace_options={'help': 'Inputs for the `EnvPwCalculation`.'})
         spec.input('environ_vacuum', valid_type=Dict, required=False, help='The input for a vacuum scf simulation')
