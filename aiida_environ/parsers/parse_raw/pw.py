@@ -28,7 +28,7 @@ default_stress_units = 'GPascal'
 
 def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None):
     """Parses the stdout content of a Quantum ESPRESSO `pw.x` calculation.
-    NOTE this is a modified version of the original QE plugin v3.1.0, updated to parse Environ output
+    NOTE this is a modified version of the original QE plugin v3.2.1, updated to parse Environ output
     (all of this is in the stdout)
 
     :param stdout: the stdout content as a string
