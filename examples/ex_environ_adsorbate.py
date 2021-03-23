@@ -24,15 +24,15 @@ siteA = a.pop(nat-1)
 siteB = a.pop(nat-2)
 structure = StructureData(ase=a)
 pp = get_pseudos_from_structure(structure, 'SSSPe')
-adsorbate_coords = np.zeros((2, 3,))
-adsorbate_coords[0, :] = siteA.position
-adsorbate_coords[1, :] = siteB.position
+vacancies = np.zeros((2, 3,))
+vacancies[0, :] = siteA.position
+vacancies[1, :] = siteB.position
 ArrayData = DataFactory('array')
 array = ArrayData()
-array.set_array('matrix', adsorbate_coords)
+array.set_array('matrix', vacancies)
 # set the builder
 builder.structure = structure
-builder.adsorbate_coords = array
+builder.vacancies = array
 
 kpoints = load_node(285)
 parameters = {
@@ -76,5 +76,6 @@ builder.pw.environ_parameters = Dict(dict=environ_parameters)
 builder.site_index = [0, 0]
 builder.possible_adsorbates = ['O', 'H']
 builder.adsorbate_index = [[1, 1], [1, 1]]
+
 print(builder)
 calculation = submit(builder)
