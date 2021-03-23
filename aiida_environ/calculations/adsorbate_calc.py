@@ -1,9 +1,10 @@
 from aiida.engine import calcfunction
 from aiida_environ.utils.occupancy import Occupancy
 from aiida_environ.utils.graph import Graph
+from aiida.orm import StructureData, List
 
 # @calcfunction
-def adsorbate_calculation(site_index, possible_adsorbates, adsorbate_index):
+def adsorbate_calculation(site_index, possible_adsorbates, adsorbate_index, structure, vacancies):
     # Setup based on inputs
     points_per_site = [0] * (max(site_index) + 1)
     adsorbate_per_site = [0] * (max(site_index) + 1)
@@ -50,4 +51,12 @@ def adsorbate_calculation(site_index, possible_adsorbates, adsorbate_index):
     max_list = g.get_vertices_with_connections(n_max)
     max_list = vertices_to_labels(max_list) 
     
-    return max_list
+    struct_list = [structure] * len(max_list) # TODO: Convert list to orm.List
+    for i, x in max_list:
+        for j, y in x:
+            for k, z in y:
+                if z != 0:
+                    struct_list[i].append_atom(position=vacancies[j], symbols=z)
+                    
+    struct_list = List(list=struct_list)
+    return struct_list
