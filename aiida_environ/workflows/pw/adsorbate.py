@@ -8,7 +8,7 @@ from adsorbate_calc import AdsorbateCalculation
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 PwBaseWorkChain = WorkflowFactory('environ.pw.base')
 
-class AdsorbateSimulation(WorkChain):
+class AdsorbateGraphConfiguration(WorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
