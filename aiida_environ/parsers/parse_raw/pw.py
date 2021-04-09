@@ -506,6 +506,13 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                 except Exception:
                     logs.warning.append('Error while parsing Fermi energy from the output file.')
 
+            elif 'the Fermi energy shift' in line:
+                try: 
+                    value = float(line.split('is')[1].split('ev')[0])
+                    trajectory_data.setdefault('fermi_energy_correction', []).append(value)
+                except Exception:
+                    logs.warning.append('Error while parsing Fermi energy from the output file.')
+
             # TODO consider adding the ENVIRON force contribution too
             # # (ENVIRON) possibly useful...
             # elif 'The global environment contribution to forces' in line:
