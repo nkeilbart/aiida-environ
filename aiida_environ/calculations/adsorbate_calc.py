@@ -51,10 +51,10 @@ def adsorbate_calculation(site_index, possible_adsorbates, adsorbate_index, stru
     max_list = g.get_vertices_with_connections(n_max)
     max_list = vertices_to_labels(max_list) 
     
-    struct_list = [structure] * len(max_list) # TODO: Convert list to orm.List
-    for i, x in max_list:
-        for j, y in x:
-            for k, z in y:
+    struct_list = [structure] * len(max_list)
+    for i, x in enumerate(max_list):
+        for j, y in enumerate(x):
+            for k, z in enumerate(y):
                 if z != 0:
                     struct_list[i].append_atom(position=vacancies[j], symbols=z)
                     

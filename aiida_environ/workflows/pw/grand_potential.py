@@ -2,11 +2,12 @@ from aiida.engine import WorkChain, ToContext, append_, calcfunction, submit
 from aiida.plugins import CalculationFactory, WorkflowFactory
 from aiida.common import AttributeDict, exceptions
 from aiida.orm import StructureData, ArrayData, List
-from aiida_environ.calculations.adsorbate_calc import AdsorbateCalculation
+from aiida_environ.calculations.adsorbate_vec import reflect_vacancies # FIXME: These should be calcfunctions being called
+from aiida_environ.calculations.adsorbate_gen import gen_structures
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 PwBaseWorkChain = WorkflowFactory('environ.pw.base')
 
-class AdsorbateGraphConfiguration(WorkChain):
+class AdsorbateGrandPotential(WorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
@@ -14,11 +15,7 @@ class AdsorbateGraphConfiguration(WorkChain):
             namespace_options={'help': 'Inputs for the `PwBaseWorkChain`.'},
             exclude=('pw.structure'))
         spec.inputs('vacancies', valid_type=ArrayData)
-        spec.inputs('site_index', valid_type=List) # List of ints
-        spec.inputs('possible_adsorbates', valid_type=List) # List of structures
-        spec.inputs('adsorbate_index', valid_type=List) # List of Lists of Ints
         spec.inputs('structure', valid_type=StructureData)
-        # spec.outputs('struct_list', valid_type=List) # Not sure if this needs to be an output
         spec.outline(
             cls.setup,
             cls.selection, 
@@ -30,9 +27,9 @@ class AdsorbateGraphConfiguration(WorkChain):
         self.ctx.struct_list = None
 
     def selection(self):
-        self.ctx.struct_list = AdsorbateCalculation(self.inputs.site_index, self.inputs.possible_adsorbates, self.inputs.adsorbate_index, self.inputs.structure, self.inputs.vacancies)
+        self.ctx.reflected_vacancies = reflect_vacancies(self.inputs.structure, self.inputs.vacancies)
+        self.ctx.struct_list = gen_structures(self.inputs.structure.cell.shape, self.inputs.structure, self.ctx.reflected_vacancies) # FIXME: Not sure how to get size of cell
 
-        
 
     def simulate(self):
         inputs = AttributeDict(self.exposed_inputs(PwBaseWorkChain, namespace='base'))
