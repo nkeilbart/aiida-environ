@@ -1,9 +1,12 @@
 from aiida.engine import calcfunction
 from aiida_environ.utils.occupancy import Occupancy
 from aiida_environ.utils.graph import Graph
-from aiida.orm import StructureData, List
+from aiida.plugins import DataFactory
 
-# @calcfunction
+StructureData = DataFactory('structure')
+List = DataFactory('list')
+
+@calcfunction
 def adsorbate_calculation(site_index, possible_adsorbates, adsorbate_index, structure, vacancies):
     # Setup based on inputs
     points_per_site = [0] * (max(site_index) + 1)
@@ -50,13 +53,19 @@ def adsorbate_calculation(site_index, possible_adsorbates, adsorbate_index, stru
 
     max_list = g.get_vertices_with_connections(n_max)
     max_list = vertices_to_labels(max_list) 
-    
-    struct_list = [structure] * len(max_list)
-    for i, x in enumerate(max_list):
-        for j, y in enumerate(x):
-            for k, z in enumerate(y):
-                if z != 0:
-                    struct_list[i].append_atom(position=vacancies[j], symbols=z)
-                    
+
+    struct_list = []
+    for i, ads_configuration in enumerate(max_list):
+        new_structure = StructureData(cell=structure.cell)
+        for site in structure.sites:
+            new_structure.append_atom(position=site.position, symbols=site.kind_name)
+        for site_configuration, pos in zip(ads_configuration, vacancies):
+            for sp in site_configuration:
+                if sp != 0:
+                    new_structure.append_atom(position=pos, symbols=sp)
+        new_structure.store()
+        struct_list.append(new_structure.pk)
+
     struct_list = List(list=struct_list)
+                    
     return struct_list

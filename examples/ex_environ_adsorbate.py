@@ -1,6 +1,6 @@
 from aiida.orm.utils import load_node, load_code
 from aiida.engine import submit
-from aiida.orm import Dict, StructureData
+from aiida.orm import List, Dict, StructureData
 from aiida.orm.nodes.data.upf import get_pseudos_from_structure
 from aiida.plugins.factories import DataFactory, WorkflowFactory
 # Once this runs right, just comment out dicts and load_node
@@ -10,9 +10,9 @@ workchain = WorkflowFactory('environ.pw.adsorbate')
 builder = workchain.get_builder()
 builder.metadata.label = "Environ test"
 builder.metadata.description = "Test of environ adsorbate workchain"
-builder.pw.metadata.options.resources = {'num_machines': 1}
-builder.pw.metadata.options.max_wallclock_seconds = 30 * 60
-builder.pw.code = code
+builder.base.pw.metadata.options.resources = {'num_machines': 1}
+builder.base.pw.metadata.options.max_wallclock_seconds = 30 * 60
+builder.base.pw.code = code
 
 # read in structure from ase
 import ase.io
@@ -23,18 +23,19 @@ nat = a.get_global_number_of_atoms()
 siteA = a.pop(nat-1)
 siteB = a.pop(nat-2)
 structure = StructureData(ase=a)
+# for idx, val in enumerate(structure.kinds):
+#     print(idx, val)
+# print(structure._internal_kind_tags)
+# quit()
 pp = get_pseudos_from_structure(structure, 'SSSPe')
-vacancies = np.zeros((2, 3,))
-vacancies[0, :] = siteA.position
-vacancies[1, :] = siteB.position
-ArrayData = DataFactory('array')
-array = ArrayData()
-array.set_array('matrix', vacancies)
+vacancies = []
+vacancies.append(tuple(siteA.position))
+vacancies.append(tuple(siteB.position))
 # set the builder
 builder.structure = structure
-builder.vacancies = array
+builder.vacancies = List(list=vacancies)
 
-kpoints = load_node(285)
+kpoints = load_node(149)
 parameters = {
     "CONTROL": {
         "calculation": "scf",
@@ -68,14 +69,14 @@ environ_parameters = {
     }                           
 }
 
-builder.pw.kpoints = kpoints
-builder.pw.parameters = Dict(dict=parameters)
-builder.pw.pseudos = pp
-builder.pw.environ_parameters = Dict(dict=environ_parameters)
+builder.base.kpoints = kpoints
+builder.base.pw.parameters = Dict(dict=parameters)
+builder.base.pw.pseudos = pp
+builder.base.pw.environ_parameters = Dict(dict=environ_parameters)
 
-builder.site_index = [0, 0]
-builder.possible_adsorbates = ['O', 'H']
-builder.adsorbate_index = [[1, 1], [1, 1]]
+builder.site_index = List(list=[0, 1])
+builder.possible_adsorbates = List(list=['O', 'H'])
+builder.adsorbate_index = List(list=[[1, 1], [1, 1]])
 
 print(builder)
 calculation = submit(builder)

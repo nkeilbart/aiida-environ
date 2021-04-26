@@ -7,7 +7,6 @@ from aiida.plugins import CalculationFactory, WorkflowFactory
 
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 
-PwCalculation = CalculationFactory('environ.pw')
 PwBaseWorkChain = WorkflowFactory('environ.pw.base')
 
 
@@ -25,7 +24,7 @@ class EnvPwRelaxWorkChain(WorkChain):
         spec.input('structure', valid_type=orm.StructureData, help='The inputs structure.')
         spec.input('final_scf', valid_type=orm.Bool, default=lambda: orm.Bool(False),
             help='If `True`, a final SCF calculation will be performed on the successfully relaxed structure.')
-        spec.input('relaxation_scheme', valid_type=orm.Str, default=lambda: orm.Str('vc-relax'),
+        spec.input('relaxation_scheme', valid_type=orm.Str, default=lambda: orm.Str('relax'),
             help='The relaxation scheme to use: choose either `relax` or `vc-relax` for variable cell relax.')
         spec.input('meta_convergence', valid_type=orm.Bool, default=lambda: orm.Bool(True),
             help='If `True` the workchain will perform a meta-convergence on the cell volume.')
