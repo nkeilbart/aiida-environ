@@ -35,8 +35,8 @@ class AdsorbateGraphConfiguration(WorkChain):
             self.inputs.site_index, self.inputs.possible_adsorbates, self.inputs.adsorbate_index, self.inputs.structure, self.inputs.vacancies)   
 
     def simulate(self):
-        inputs = AttributeDict(self.exposed_inputs(PwBaseWorkChain, namespace='base'))
         for structure_pk in self.ctx.struct_list:
+            inputs = AttributeDict(self.exposed_inputs(PwBaseWorkChain, namespace='base'))
             structure = load_node(structure_pk)
             self.report('{}'.format(structure))
             inputs.pw.structure = structure
@@ -46,7 +46,7 @@ class AdsorbateGraphConfiguration(WorkChain):
 
             self.report('launching PwBaseWorkChain<{}>'.format(running.pk))
 
-            return ToContext(workchains=append_(running))
+        return ToContext(workchains=append_(running))
     
     def postprocessing(self):
         pass

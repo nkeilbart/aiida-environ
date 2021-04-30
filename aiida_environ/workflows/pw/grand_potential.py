@@ -3,8 +3,10 @@ from aiida.plugins import CalculationFactory, WorkflowFactory
 from aiida.common import AttributeDict, exceptions
 from aiida.orm import StructureData, ArrayData, List
 from aiida_environ.calculations.adsorbate_vec import reflect_vacancies # FIXME: These should be calcfunctions being called
-from aiida_environ.calculations.adsorbate_gen import gen_structures
+from aiida_environ.calculations.adsorbate_gen import gen_structures, gen_hydrogen
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
+from aiida.orm.utils import load_node
+
 PwBaseWorkChain = WorkflowFactory('environ.pw.base')
 
 class AdsorbateGrandPotential(WorkChain):
@@ -32,9 +34,10 @@ class AdsorbateGrandPotential(WorkChain):
 
 
     def simulate(self):
-        inputs = AttributeDict(self.exposed_inputs(PwBaseWorkChain, namespace='base'))
-        for structure in self.ctx.struct_list:
-            self.submit(PwBaseWorkChain, **inputs)
+        for structure_pk in self.ctx.struct_list:
+            inputs = AttributeDict(self.exposed_inputs(PwBaseWorkChain, namespace='base'))
+            structure = load_node(structure_pk)
+            self.report('{}'.format(structure))
             inputs.pw.structure = structure
 
             inputs = prepare_process_inputs(PwBaseWorkChain, inputs)
@@ -42,7 +45,24 @@ class AdsorbateGrandPotential(WorkChain):
 
             self.report('launching PwBaseWorkChain<{}>'.format(running.pk))
 
-            return ToContext(workchains=append_(running))
+        # base simulation
+        inputs = AttributeDict(self.exposed_inputs(PwBaseWorkChain, namespace='base'))
+        structure = self.inputs.structure
+        self.report('{}'.format(structure))
+        inputs.pw.structure = structure
+
+        # hydrogen simulation
+        inputs = AttributeDict(self.exposed_inputs(PwBaseWorkChain, namespace='base'))
+        structure = gen_hydrogen()
+        self.report('{}'.format(structure))
+        inputs.pw.structure = structure
+
+        inputs = prepare_process_inputs(PwBaseWorkChain, inputs)
+        running = self.submit(PwBaseWorkChain, **inputs)
+
+        self.report('launching PwBaseWorkChain<{}>'.format(running.pk))
+
+        return ToContext(workchains=append_(running))
     
     def postprocessing(self):
         pass

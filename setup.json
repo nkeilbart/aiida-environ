@@ -18,7 +18,8 @@
             "environ.pw.base = aiida_environ.workflows.pw.base:EnvPwBaseWorkChain",
             "environ.pw.relax = aiida_environ.workflows.pw.relax:EnvPwRelaxWorkChain",
             "environ.pw.solvation = aiida_environ.workflows.pw.solvation:PwSolvationWorkChain",
-            "environ.pw.adsorbate = aiida_environ.workflows.pw.adsorbate:AdsorbateGraphConfiguration"
+            "environ.pw.adsorbate = aiida_environ.workflows.pw.adsorbate:AdsorbateGraphConfiguration",
+            "environ.pw.grandpotential = aiida_environ.workflows.pw.adsorbate:AdsorbateGrandPotential"
         ]
     },
     "extras_require": {
