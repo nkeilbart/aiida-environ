@@ -30,7 +30,7 @@ class AdsorbateGrandPotential(WorkChain):
         self.ctx.struct_list = []
 
     def selection(self):
-        self.ctx.struct_list = generate_structures(self.inputs.cell_shape, self.inputs.structure, self.ctx.reflected_vacancies)
+        self.ctx.struct_list = generate_structures(self.inputs.cell_shape, self.inputs.structure, self.inputs.vacancies)
         reflect_vacancies(self.ctx.struct_list, self.inputs.structure)
 
     def simulate(self):
