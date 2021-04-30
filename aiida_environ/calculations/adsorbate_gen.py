@@ -174,7 +174,7 @@ def generate_structures(size, structure, vacancies):
 
     return struct_list
 
-def gen_hydrogen():
+def generate_hydrogen():
     cell = [[10.0, 0.0, 0.0], [0.0, 10.0, 0.0], [0.0, 0.0, 10.0]]
     struct = StructureData(cell=cell)
     struct.append_atom(position=(0.3704, 0.0, 0.0), symbols="H")
