@@ -46,8 +46,12 @@ class EnvPwParser(PwParser):
                 return self.exit(self.exit_codes.ERROR_NO_RETRIEVED_TEMPORARY_FOLDER)
 
         parameters = self.node.inputs.parameters.get_dict()
+        environ_parameters = self.node.inputs.environ_parameters.get_dict()
         parsed_xml, logs_xml = self.parse_xml(dir_with_bands, parser_options)
         parsed_stdout, logs_stdout = self.parse_stdout(parameters, parser_options, parsed_xml)
+        if environ_parameters["ENVIRON"]["verbose"] > 0:
+            parsed_debug, logs_debug = self.parse_debug(parser_options)
+            parsed_stdout.update(parsed_debug)
 
         parsed_bands = parsed_stdout.pop('bands', {})
         parsed_structure = parsed_stdout.pop('structure', {})
@@ -175,6 +179,44 @@ class EnvPwParser(PwParser):
             symbols = {s.kind_name: structure.get_kind(s.kind_name).symbol for s in structure.sites}
             parsed_data['structure']['cell']['atoms'] = [(symbols[s.kind_name], s.position) for s in structure.sites]
 
+        return parsed_data, logs
+        
+    def parse_debug(self, parser_options=None):
+        """Parse the stdout output file.
+
+        :param parameters: the input parameters dictionary
+        :param parser_options: optional dictionary with parser options
+        :param parsed_xml: the raw parsed data from the XML output
+        :return: tuple of two dictionaries, first with raw parsed data and second with log messages
+        """
+        from aiida_environ.parsers.parse_raw.pw import parse_debug
+
+        logs = get_logging_container()
+        parsed_data = {}
+
+        filename_stdout = self.node.get_attribute('debug_filename')
+
+        if filename_stdout not in self.retrieved.list_object_names():
+            self.exit_code_stdout = self.exit_codes.ERROR_OUTPUT_STDOUT_MISSING
+            return parsed_data, logs
+        
+        try:
+            stdout = self.retrieved.get_object_content(filename_stdout)
+        except IOError:
+            self.exit_code_stdout = self.exit_codes.ERROR_OUTPUT_STDOUT_READ
+            return parsed_data, logs
+
+        try:
+            parsed_data, logs = parse_debug(stdout, parser_options)
+        except Exception:
+            logs.critical.append(traceback.format_exc())
+            self.exit_code_stdout = self.exit_codes.ERROR_UNEXPECTED_PARSER_EXCEPTION
+
+        # If the stdout was incomplete, most likely the job was interrupted before it could cleanly finish, so the
+        # output files are most likely corrupt and cannot be restarted from
+        if 'ERROR_OUTPUT_STDOUT_INCOMPLETE' in logs['error']:
+            self.exit_code_stdout = self.exit_codes.ERROR_OUTPUT_STDOUT_INCOMPLETE
+        
         return parsed_data, logs
 
     @staticmethod

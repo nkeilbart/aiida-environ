@@ -681,3 +681,39 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
     parsed_data['trajectory'] = trajectory_data
 
     return parsed_data, logs
+
+def parse_debug(debug, parser_options=None):
+    """Parses the debug content of a Quantum ESPRESSO `pw.x` + Environ calculation.
+
+    :param debug: the stdout content as a string
+    :param parser_options: the parser options from the settings input parameter node
+    :returns: tuple of two dictionaries, with the parsed data and log messages, respectively
+    """
+
+    if parser_options is None:
+        parser_options = {}
+
+    # Separate the input string into separate lines
+    data_lines = debug.split('\n')
+
+    logs = get_logging_container()
+
+    parsed_data = {}
+
+    # now grep quantities that can be considered isolated informations.
+    for count, line in enumerate(data_lines):
+        if 'volume of the QM region' in line:
+            qm_volume = float(line.split('=')[1].strip())
+            if 'qm_volume' not in parsed_data:
+                parsed_data['qm_volume'] = [qm_volume]
+            else:
+                parsed_data['qm_volume'].append(qm_volume)
+        if 'surface of the QM region' in line:
+            qm_surface = float(line.split('=')[1].strip())
+            if 'qm_surface' not in parsed_data:
+                parsed_data['qm_surface'] = [qm_surface]
+            else:
+                parsed_data['qm_surface'].append(qm_surface)
+    
+    return parsed_data, logs
+    
