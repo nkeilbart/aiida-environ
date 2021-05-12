@@ -2,7 +2,7 @@ from aiida.engine import WorkChain, ToContext, append_, calcfunction, submit
 from aiida.plugins import CalculationFactory, WorkflowFactory
 from aiida.common import AttributeDict, exceptions
 from aiida.orm import StructureData, ArrayData, List
-from aiida_environ.calculations.adsorbate_vec import reflect_vacancies # FIXME: These should be calcfunctions being called
+from aiida_environ.calculations.adsorbate_vec import reflect_vacancies
 from aiida_environ.calculations.adsorbate_gen import generate_structures, generate_hydrogen
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 from aiida.orm.utils import load_node
@@ -18,6 +18,7 @@ class AdsorbateGrandPotential(WorkChain):
             exclude=('pw.structure'))
         spec.inputs('vacancies', valid_type=List)
         spec.inputs('structure', valid_type=StructureData)
+        spec.inputs('cell_shape', valid_type=List)
         spec.outline(
             cls.setup,
             cls.selection, 
@@ -29,11 +30,8 @@ class AdsorbateGrandPotential(WorkChain):
         self.ctx.struct_list = []
 
     def selection(self):
-        # TODO move generate_structures to the front, reflect the adsorbate atoms for each member of the struct_list
-        self.ctx.reflected_vacancies = reflect_vacancies(self.inputs.structure, self.inputs.vacancies)
-        self.ctx.struct_list = generate_structures(self.inputs.structure.cell.shape, self.inputs.structure, self.ctx.reflected_vacancies) # FIXME: Not sure how to get size of cell
-        # self.ctx.struct_list = reflect_vacancies(self.ctx.struct_list, self.inputs.structure)
-        # remember that this list is now a list of pk identifiers
+        self.ctx.struct_list = generate_structures(self.inputs.cell_shape, self.inputs.structure, self.inputs.vacancies)
+        reflect_vacancies(self.ctx.struct_list, self.inputs.structure)
 
     def simulate(self):
         for structure_pk in self.ctx.struct_list:

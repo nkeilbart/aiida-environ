@@ -125,8 +125,8 @@ def test_symmetry(i1, i2):
 
     return True
 
-def generate_structures(size, structure, vacancies):
-
+def generate_structures(size_l, structure, vacancies):
+    size = tuple(size_l)
     n = size[0] * size[1]
     perms = []
     # 0 case (not stored)
