@@ -3,9 +3,10 @@ from aiida.engine import submit
 from aiida.orm import List, Dict, StructureData
 from aiida.orm.nodes.data.upf import get_pseudos_from_structure
 from aiida.plugins.factories import DataFactory, WorkflowFactory
+from . import node_assignment
 # Once this runs right, just comment out dicts and load_node
 # try loading aiida-environ, everything stored as nodes already
-code = load_code(109)
+code = load_code(node_assignment.ENVIRON_CODE_PK)
 workchain = WorkflowFactory('environ.pw.grandpotential')
 builder = workchain.get_builder()
 builder.metadata.label = "Environ test"
@@ -32,24 +33,6 @@ builder.size = (())
 builder.structure = structure
 builder.vacancies = List(list=vacancies)
 
-kpoints = load_node(149)
-parameters = {
-    "CONTROL": {
-        "calculation": "scf",
-        "restart_mode": "from_scratch",
-        "tprnfor": True
-    },
-    'SYSTEM': {
-        'ecutrho': 300,
-        'ecutwfc': 30
-    }, 
-    'ELECTRONS': {
-        'conv_thr': 5.e-9,
-        'diagonalization': 'cg',
-        'mixing_beta': 0.4,
-        'electron_maxstep': 200
-    }
-}
 environ_parameters = {
     "ENVIRON": {
         "environ_restart": False,
@@ -66,8 +49,8 @@ environ_parameters = {
     }                           
 }
 
-builder.base.kpoints = kpoints
-builder.base.pw.parameters = Dict(dict=parameters)
+builder.base.kpoints = load_node(node_assignment.get("SIMPLE_KPOINTS_PK"))
+builder.base.pw.parameters = load_node(node_assignment.get("SIMPLE_PARAMETERS_PK"))
 builder.base.pw.pseudos = pp
 builder.base.pw.environ_parameters = Dict(dict=environ_parameters)
 
