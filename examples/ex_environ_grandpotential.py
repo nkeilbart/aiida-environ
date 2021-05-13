@@ -2,8 +2,9 @@ from aiida.orm.utils import load_node, load_code
 from aiida.engine import submit
 from aiida.orm import List, Dict, StructureData
 from aiida.orm.nodes.data.upf import get_pseudos_from_structure
-from aiida.plugins.factories import DataFactory, WorkflowFactory
-from . import node_assignment
+from aiida.plugins.factories import WorkflowFactory
+import node_assignment
+
 # Once this runs right, just comment out dicts and load_node
 # try loading aiida-environ, everything stored as nodes already
 code = load_code(node_assignment.ENVIRON_CODE_PK)

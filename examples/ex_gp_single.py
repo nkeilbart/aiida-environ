@@ -3,7 +3,7 @@ from aiida.orm import Dict
 from aiida.engine import submit
 from aiida.orm.nodes.data.upf import get_pseudos_from_structure
 from aiida.plugins.factories import WorkflowFactory
-import node_assignment
+from . import node_assignment
 
 # try loading aiida-environ, everything stored as nodes already
 code = load_code(109)

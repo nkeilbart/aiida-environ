@@ -1,13 +1,14 @@
 from aiida import load_profile
 load_profile()
 
+from aiida.orm import Dict
 from aiida.orm.utils import load_node, load_code
 from aiida.engine import submit
 from aiida.orm.nodes.data.upf import get_pseudos_from_structure
-from . import node_assignment
+import node_assignment
 
 # try loading aiida-environ, everything stored as nodes already
-code = load_code()
+code = load_code(node_assignment.get("ENVIRON_CODE_PK"))
 builder = code.get_builder()
 builder.metadata.label = "Environ test"
 builder.metadata.description = "Test of environ plugin"
@@ -37,7 +38,7 @@ builder.structure = load_node(node_assignment.get("SIMPLE_STRUCTURE_PK"))
 builder.kpoints = load_node(node_assignment.get("SIMPLE_KPOINTS_PK"))
 builder.parameters = load_node(node_assignment.get("SIMPLE_PARAMETERS_PK"))
 builder.pseudos = get_pseudos_from_structure(builder.structure, 'SSSPe')
-builder.environ_parameters = environ_parameters
+builder.environ_parameters = Dict(dict=environ_parameters)
 
 calculation = submit(builder)
 print(calculation)
