@@ -11,6 +11,9 @@
         "aiida.calculations": [
             "environ.pw = aiida_environ.calculations.pw:EnvPwCalculation"
         ],
+        "aiida.data": [
+            "environ.charges = aiida_environ.data.charge:EnvironChargeData"
+        ],
         "aiida.parsers": [
             "environ.pw = aiida_environ.parsers.pw:EnvPwParser"
         ],

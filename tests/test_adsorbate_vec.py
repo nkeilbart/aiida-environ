@@ -1,7 +1,6 @@
 import unittest
 import numpy as np
-from aiida_environ.calculations.adsorbate_vec import reflect_point
-from aiida_environ.calculations.adsorbate_vec import point_project
+from aiida_environ.utils.vector import reflect_point
 class TestAdsVec(unittest.TestCase):
     def test_reflect(self):
         # Plane of 9x - 7y - 5z = 0
