@@ -4,6 +4,9 @@
 The function that needs to be called from outside is parse_raw_output(). The functions mostly work without aiida
 specific functionalities. The parsing will try to convert whatever it can in some dictionary, which by operative
 decision doesn't have much structure encoded, [the values are simple ]
+
+ENVIRON NOTE: These functions will overwrite the QE plugin functions and therefore developers should keep update
+any changes made to the original functions over here (until Environ is completely detached)
 """
 import re
 import numpy
@@ -167,7 +170,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
             if match:
                 try:
                     parsed_data['estimated_ram_per_process'] = float(match.group(1))
-                    parsed_data['estimated_ram_per_process{}'.format(units_suffix)] = match.group(4)
+                    parsed_data[f'estimated_ram_per_process{units_suffix}')] = match.group(4)
                 except (IndexError, ValueError):
                     pass
 
@@ -178,7 +181,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
             if match:
                 try:
                     parsed_data['estimated_ram_total'] = float(match.group(1))
-                    parsed_data['estimated_ram_total{}'.format(units_suffix)] = match.group(4)
+                    parsed_data[f'estimated_ram_total{units_suffix}')] = match.group(4)
                 except (IndexError, ValueError):
                     pass
 
@@ -225,7 +228,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                     parsed_data['pointgroup_schoenflies'] = pg_schoenflies
 
                 except Exception:
-                    warning = 'Problem parsing point group, I found: {}'.format(line.strip())
+                    warning = f'Problem parsing point group, I found: {line.strip()}')
                     logs.warning.append(warning)
 
         # special parsing of c_bands error
@@ -271,7 +274,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                     lattice = line.split('(')[1].split(')')[0].split('=')
                     if lattice[0].lower() not in ['alat', 'bohr', 'angstrom']:
                         raise QEOutputParsingError(
-                            'Error while parsing cell_parameters: ' + 'unsupported units {}'.format(lattice[0])
+                            f'Error while parsing cell_parameters: ' + 'unsupported units {lattice[0]}'
                         )
 
                     if 'alat' in lattice[0].lower():
@@ -330,7 +333,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                     units = line2.split()[-1]
                     if default_dipole_units.lower() not in units.lower():  # only debye
                         raise QEOutputParsingError(
-                            'Error parsing the dipole correction. Units {} are not supported.'.format(units)
+                            f'Error parsing the dipole correction. Units {units} are not supported.'
                         )
                     value = float(line2.split()[-2])
                 except IndexError:  # on units

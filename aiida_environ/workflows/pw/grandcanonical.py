@@ -3,14 +3,14 @@ from aiida.plugins import WorkflowFactory
 from aiida.common import AttributeDict
 from aiida.orm import StructureData, List, Dict
 from aiida_environ.utils.vector import reflect_vacancies, get_struct_bounds
-from aiida_environ.calculations.adsorbate_gen import generate_structures, generate_hydrogen
+from aiida_environ.calculations.adsorbate.gen_supercell import adsorbate_gen_supercell, gen_hydrogen
 from aiida_environ.data.charge import EnvironChargeData
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 from aiida.orm.utils import load_node
 
 PwBaseWorkChain = WorkflowFactory('environ.pw.base')
 
-class AdsorbateGrandPotential(WorkChain):
+class AdsorbateGrandCanonical(WorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
@@ -50,7 +50,7 @@ class AdsorbateGrandPotential(WorkChain):
 
     def selection(self):
         axis = self.inputs.calculation_parameters['charge_axis']
-        self.ctx.struct_list = generate_structures(self.inputs.cell_shape, self.inputs.structure, self.inputs.vacancies)
+        self.ctx.struct_list = adsorbate_gen_supercell(self.inputs.cell_shape, self.inputs.structure, self.inputs.vacancies)
         reflect_vacancies(self.ctx.struct_list, self.inputs.structure, axis)
 
     def simulate(self):

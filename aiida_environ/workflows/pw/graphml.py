@@ -2,7 +2,7 @@ from aiida.engine import WorkChain, ToContext, append_
 from aiida.plugins import WorkflowFactory
 from aiida.common import AttributeDict
 from aiida.orm import StructureData, List
-from aiida_environ.calculations.adsorbate_calc import adsorbate_calculation
+from aiida_environ.calculations.adsorbate.gen_multitype import adsorbate_gen_multitype
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 from aiida.orm.utils import load_node
 
@@ -31,7 +31,7 @@ class AdsorbateGraphConfiguration(WorkChain):
         self.ctx.struct_list = []
 
     def selection(self):
-        self.ctx.struct_list = adsorbate_calculation(
+        self.ctx.struct_list = adsorbate_gen_multitype(
             self.inputs.site_index, self.inputs.possible_adsorbates, self.inputs.adsorbate_index, self.inputs.structure, self.inputs.vacancies)   
 
     def simulate(self):

@@ -26,11 +26,6 @@ class EnvPwParser(PwParser):
         self.exit_code_parser = None
 
         try:
-            self.retrieved
-        except exceptions.NotExistent:
-            return self.exit(self.exit(self.exit_codes.ERROR_NO_RETRIEVED_FOLDER))
-
-        try:
             settings = self.node.inputs.settings.get_dict()
         except exceptions.NotExistent:
             settings = {}
@@ -49,7 +44,7 @@ class EnvPwParser(PwParser):
         environ_parameters = self.node.inputs.environ_parameters.get_dict()
         parsed_xml, logs_xml = self.parse_xml(dir_with_bands, parser_options)
         parsed_stdout, logs_stdout = self.parse_stdout(parameters, parser_options, parsed_xml)
-        if environ_parameters["ENVIRON"]["verbose"] > 0:
+        if "verbose" in environ_parameters["ENVIRON"] and environ_parameters["ENVIRON"]["verbose"] > 0:
             parsed_debug, logs_debug = self.parse_debug(parser_options)
             parsed_stdout.update(parsed_debug)
 

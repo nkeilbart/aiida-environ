@@ -3,11 +3,13 @@ from aiida_environ.utils.occupancy import Occupancy
 from aiida_environ.utils.graph import Graph
 from aiida.plugins import DataFactory
 
+
 StructureData = DataFactory('structure')
 List = DataFactory('list')
 
+
 @calcfunction
-def adsorbate_calculation(site_index, possible_adsorbates, adsorbate_index, structure, vacancies):
+def adsorbate_gen_multitype(site_index, possible_adsorbates, adsorbate_index, structure, vacancies):
     # Setup based on inputs
     points_per_site = [0] * (max(site_index) + 1)
     adsorbate_per_site = [0] * (max(site_index) + 1)

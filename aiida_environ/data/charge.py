@@ -1,5 +1,6 @@
-from aiida.orm import Data
 from typing import Tuple
+
+from aiida.orm import Data
 
 class EnvironCharge:
     def __init__(self, **kwargs):
