@@ -21,8 +21,8 @@
             "environ.pw.base = aiida_environ.workflows.pw.base:EnvPwBaseWorkChain",
             "environ.pw.relax = aiida_environ.workflows.pw.relax:EnvPwRelaxWorkChain",
             "environ.pw.solvation = aiida_environ.workflows.pw.solvation:PwSolvationWorkChain",
-            "environ.pw.adsorbate = aiida_environ.workflows.pw.adsorbate:AdsorbateGraphConfiguration",
-            "environ.pw.grandpotential = aiida_environ.workflows.pw.adsorbate:AdsorbateGrandPotential"
+            "environ.pw.graphml = aiida_environ.workflows.pw.adsorbate:AdsorbateGraphConfiguration",
+            "environ.pw.grandcanonical = aiida_environ.workflows.pw.adsorbate:AdsorbateGrandCanonical"
         ]
     },
     "extras_require": {
@@ -45,8 +45,8 @@
         ]
     },
     "install_requires": [
-        "aiida_core[atomic_tools]~=1.2",
-        "aiida_quantumespresso~=3.2",
+        "aiida_core>=1.6",
+        "aiida_quantumespresso>=3.4",
         "packaging",
         "xmlschema~=1.2"
     ],
@@ -54,5 +54,5 @@
     "name": "aiida_environ",
     "python_requires": ">=3.5",
     "url": "",
-    "version": "0.1.0"
+    "version": "0.2.0"
 }
