@@ -170,7 +170,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
             if match:
                 try:
                     parsed_data['estimated_ram_per_process'] = float(match.group(1))
-                    parsed_data[f'estimated_ram_per_process{units_suffix}')] = match.group(4)
+                    parsed_data[f'estimated_ram_per_process{units_suffix}'] = match.group(4)
                 except (IndexError, ValueError):
                     pass
 
@@ -181,7 +181,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
             if match:
                 try:
                     parsed_data['estimated_ram_total'] = float(match.group(1))
-                    parsed_data[f'estimated_ram_total{units_suffix}')] = match.group(4)
+                    parsed_data[f'estimated_ram_total{units_suffix}'] = match.group(4)
                 except (IndexError, ValueError):
                     pass
 
@@ -228,7 +228,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                     parsed_data['pointgroup_schoenflies'] = pg_schoenflies
 
                 except Exception:
-                    warning = f'Problem parsing point group, I found: {line.strip()}')
+                    warning = f'Problem parsing point group, I found: {line.strip()}'
                     logs.warning.append(warning)
 
         # special parsing of c_bands error

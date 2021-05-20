@@ -1,12 +1,16 @@
+import numpy as np
+
 from aiida.engine import WorkChain, ToContext, append_
 from aiida.plugins import WorkflowFactory
 from aiida.common import AttributeDict
 from aiida.orm import StructureData, List, Dict
+from aiida.orm.utils import load_node
+
+from aiida_quantumespresso.utils.mapping import prepare_process_inputs
+
 from aiida_environ.utils.vector import reflect_vacancies, get_struct_bounds
 from aiida_environ.calculations.adsorbate.gen_supercell import adsorbate_gen_supercell, gen_hydrogen
 from aiida_environ.data.charge import EnvironChargeData
-from aiida_quantumespresso.utils.mapping import prepare_process_inputs
-from aiida.orm.utils import load_node
 
 PwBaseWorkChain = WorkflowFactory('environ.pw.base')
 
@@ -108,7 +112,7 @@ class AdsorbateGrandCanonical(WorkChain):
 
         # hydrogen simulation
         inputs = AttributeDict(self.exposed_inputs(PwBaseWorkChain, namespace='base'))
-        structure = generate_hydrogen()
+        structure = gen_hydrogen()
         self.report('{}'.format(structure))
         inputs.pw.structure = structure
 
