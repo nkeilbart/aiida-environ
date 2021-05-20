@@ -8,7 +8,7 @@ import node_assignment
 # Once this runs right, just comment out dicts and load_node
 # try loading aiida-environ, everything stored as nodes already
 code = load_code(node_assignment.get("ENVIRON_CODE_PK"))
-workchain = WorkflowFactory('environ.pw.adsorbate')
+workchain = WorkflowFactory('environ.pw.graphml')
 builder = workchain.get_builder()
 builder.metadata.label = "Environ test"
 builder.metadata.description = "Test of environ adsorbate workchain"

@@ -51,7 +51,7 @@ parameters = {
         "degauss": 0.02,
         "smearing": "cold",
         "tot_charge": -1.0,
-    #    "input_dft": "vdw-df2-c09",
+        "input_dft": "vdw-df2-c09",
     },
     "ELECTRONS": {
         "electron_maxstep": 200,
@@ -62,10 +62,6 @@ parameters = {
     "IONS": {
         "ion_dynamics": "bfgs",
     },
-    # "CELL": {
-    #     "cell_dynamics": "bfgs",
-    #     "cell_do_free": "2Dxy",
-    # },
 }
 
 environ_parameters = {
@@ -98,7 +94,6 @@ environ_parameters = {
     }
 }
 
-# this makes no sense but we'll create a dry run and check the environ.in file
 EnvironChargeData = DataFactory('environ.charges')
 charges = EnvironChargeData()
 charges.append_charge(0.5, (0.0, 0.0, 18.1419), 0.5, 2, 3)
