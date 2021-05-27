@@ -189,14 +189,10 @@ class EnvPwParser(PwParser):
         logs = get_logging_container()
         parsed_data = {}
 
-        filename_stdout = self.node.get_attribute('debug_filename')
-
-        if filename_stdout not in self.retrieved.list_object_names():
-            self.exit_code_stdout = self.exit_codes.ERROR_OUTPUT_STDOUT_MISSING
-            return parsed_data, logs
+        debug_filename = self.node.get_attribute('debug_filename')
         
         try:
-            stdout = self.retrieved.get_object_content(filename_stdout)
+            stdout = self.retrieved.get_object_content(debug_filename)
         except IOError:
             self.exit_code_stdout = self.exit_codes.ERROR_OUTPUT_STDOUT_READ
             return parsed_data, logs

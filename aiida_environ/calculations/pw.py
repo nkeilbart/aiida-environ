@@ -12,6 +12,7 @@ from aiida_quantumespresso.utils.convert import convert_input_to_namelist_entry
 from aiida_environ.data.charge import EnvironChargeData
 
 class EnvPwCalculation(PwCalculation):
+    """`CalcJob` implementation for the pw.x code of Quantum ESPRESSO + Environ."""
 
     _DEFAULT_DEBUG_FILE = 'environ.debug'
 
@@ -32,6 +33,9 @@ class EnvPwCalculation(PwCalculation):
 
     def prepare_for_submission(self, folder: Folder) -> CalcInfo:
         calcinfo = BasePwCpInputGenerator.prepare_for_submission(self, folder)
+
+        # add additional files to retrieve list
+        calcinfo.retrieve_list.append(self.metadata.options.debug_filename)
         # TODO consider lists of length > 1
         codeinfo = calcinfo.codes_info[0]
         # prepend the command line parametes with --environ (so that it appears just after the executable call)

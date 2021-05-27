@@ -509,7 +509,17 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                 except Exception:
                     logs.warning.append('Error while parsing Fermi energy from the output file.')
 
+            # Environ 1.0
             elif 'the Fermi energy shift' in line:
+                try: 
+                    value = float(line.split('is')[1].split('ev')[0])
+                    trajectory_data.setdefault('fermi_energy_correction', []).append(value)
+                except Exception:
+                    logs.warning.append('Error while parsing Fermi energy from the output file.')
+
+            # Environ 1.1, 2.0
+            # TODO: need a way to figure out the Environ version based off the output (currently it's not printed out)
+            elif 'potential shift' in line:
                 try: 
                     value = float(line.split('is')[1].split('ev')[0])
                     trajectory_data.setdefault('fermi_energy_correction', []).append(value)
