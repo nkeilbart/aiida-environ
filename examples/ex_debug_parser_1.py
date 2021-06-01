@@ -29,7 +29,7 @@ structure.append_atom(position=(0.00000, 0.00000, 12.033669694), symbols="Ag")
 
 KpointsData = DataFactory('array.kpoints')
 kpoints_mesh = KpointsData()
-kpoints_mesh.set_kpoints_mesh([18, 18, 1])
+kpoints_mesh.set_kpoints_mesh([1, 1, 1])
 
 parameters = {
     "CONTROL": {

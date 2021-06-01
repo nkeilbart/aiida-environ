@@ -24,7 +24,6 @@ environ_parameters = {
     },                                                   
     "BOUNDARY": {
         "alpha": 1.12,
-        "radius_mode": "muff",
         "solvent_mode": "ionic"
     },
     "ELECTROSTATIC": {
@@ -51,7 +50,7 @@ environ_solution = {
 builder.pw.structure = load_node(node_assignment.get("SIMPLE_STRUCTURE_PK"))
 builder.pw.kpoints = load_node(node_assignment.get("SIMPLE_KPOINTS_PK"))
 builder.pw.parameters = load_node(node_assignment.get("SIMPLE_PARAMETERS_PK"))
-builder.pw.pseudos = get_pseudos_from_structure(builder.structure, 'SSSPe')
+builder.pw.pseudos = get_pseudos_from_structure(builder.pw.structure, 'SSSPe')
 builder.pw.environ_parameters = Dict(dict=environ_parameters)
 builder.environ_vacuum = Dict(dict=environ_vacuum)
 builder.environ_solution = Dict(dict=environ_solution)
