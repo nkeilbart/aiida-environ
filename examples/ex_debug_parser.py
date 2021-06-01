@@ -10,7 +10,7 @@ import node_assignment
 import numpy as np
 
 # try loading aiida-environ, everything stored as nodes already
-code = load_code(node_assignment.get("ENVIRON_CODE_PK"))
+code = load_code(357)
 builder = code.get_builder()
 builder.metadata.label = "Environ test"
 builder.metadata.description = "Test of environ plugin"
