@@ -519,7 +519,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
 
             # Environ 1.1, 2.0
             # TODO: need a way to figure out the Environ version based off the output (currently it's not printed out)
-            elif 'potential shift' in line:
+            elif 'potential shift due' in line:
                 try: 
                     value = float(line.split('is')[1].split('ev')[0])
                     trajectory_data.setdefault('fermi_energy_correction', []).append(value)

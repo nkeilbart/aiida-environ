@@ -240,6 +240,7 @@ class EnvPwParser(PwParser):
             'energy_one_electron_environ',
             'scf_iterations',
             'fermi_energy',
+            'fermi_energy_correction',
             'total_force',
             'total_magnetization',
             'absolute_magnetization',
