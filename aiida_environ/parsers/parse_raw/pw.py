@@ -433,7 +433,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                             else:
                                 break
                     else:
-                        raise KeyError(f'could not find and parse the line with `{marker}`'.)
+                        raise KeyError(f'could not find and parse the line with `{marker}`')
 
                     for key, value in [['energy', En], ['energy_accuracy', E_acc]]:
                         trajectory_data.setdefault(key, []).append(value)
