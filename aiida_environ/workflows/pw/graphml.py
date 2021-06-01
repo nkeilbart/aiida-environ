@@ -38,13 +38,13 @@ class AdsorbateGraphConfiguration(WorkChain):
         for structure_pk in self.ctx.struct_list:
             inputs = AttributeDict(self.exposed_inputs(PwBaseWorkChain, namespace='base'))
             structure = load_node(structure_pk)
-            self.report('{}'.format(structure))
+            self.report(f'{structure}')
             inputs.pw.structure = structure
 
             inputs = prepare_process_inputs(PwBaseWorkChain, inputs)
             running = self.submit(PwBaseWorkChain, **inputs)
 
-            self.report('launching PwBaseWorkChain<{}>'.format(running.pk))
+            self.report(f'launching PwBaseWorkChain<{running.pk}>')
 
         return ToContext(workchains=append_(running))
     

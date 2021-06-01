@@ -81,7 +81,7 @@ class EnvPwCalculation(PwCalculation):
         mapping_species = {kind_name: (index + 1) for index, kind_name in enumerate(kind_names)}
 
         for namelist_name in namelists_toprint:
-            inputfile += '&{0}\n'.format(namelist_name)
+            inputfile += f'&{namelist_name}\n'
             # namelist content; set to {} if not present, so that we leave an empty namelist
             namelist = input_params.pop(namelist_name, {})
             for key, value in sorted(namelist.items()):

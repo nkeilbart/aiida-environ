@@ -226,10 +226,8 @@ class EnvironChargeData(Data):
         # TODO add support for other units
         inputappend = "EXTERNAL_CHARGES (angstrom)\n"
         for charge in environ_charges:
-            inputappend += "{} {:10.6f} {:10.6f} {:10.6f} {} {:d} {:d}\n".format(
-                charge.charge, charge.position[0], charge.position[1], charge.position[2],
-                charge.spread, charge.dim, charge.axis
-            )
+            inputappend += f'{charge.charge} {charge.position[0]:10.6f} {charge.position[1]:10.6f} {charge.position[2]:10.6f} ' \
+                f'{charge.spread:10.6f} {charge.dim:d} {charge.axis:d}\n'
 
         return inputappend
         

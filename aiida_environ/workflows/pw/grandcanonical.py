@@ -76,7 +76,7 @@ class AdsorbateGrandCanonical(WorkChain):
         npcpos2[axis-1] = cpos2
 
         nsims = (len(charge_range) * (len(self.ctx.struct_list) + 1)) + 1
-        self.report('number of simulations to run = {}'.format(nsims))
+        self.report(f'number of simulations to run = {nsims}')
 
         for charge_amt in charge_range:
 
@@ -89,37 +89,37 @@ class AdsorbateGrandCanonical(WorkChain):
             for structure_pk in self.ctx.struct_list:
                 inputs = AttributeDict(self.exposed_inputs(PwBaseWorkChain, namespace='base'))
                 structure = load_node(structure_pk)
-                self.report('{}'.format(structure))
+                self.report(f'{structure}')
                 inputs.pw.structure = structure
                 inputs.pw.external_charges = charges
 
                 inputs = prepare_process_inputs(PwBaseWorkChain, inputs)
                 running = self.submit(PwBaseWorkChain, **inputs)
 
-                self.report('launching PwBaseWorkChain<{}>'.format(running.pk))
+                self.report(f'launching PwBaseWorkChain<{running.pk}>')
 
             # base simulation
             inputs = AttributeDict(self.exposed_inputs(PwBaseWorkChain, namespace='base'))
             structure = self.inputs.structure
-            self.report('{}'.format(structure))
+            self.report(f'{structure}')
             inputs.pw.structure = structure
             inputs.pw.external_charges = charges
 
             inputs = prepare_process_inputs(PwBaseWorkChain, inputs)
             running = self.submit(PwBaseWorkChain, **inputs)
             
-            self.report('launching PwBaseWorkChain<{}>'.format(running.pk))
+            self.report(f'launching PwBaseWorkChain<{running.pk}>')
 
         # hydrogen simulation
         inputs = AttributeDict(self.exposed_inputs(PwBaseWorkChain, namespace='base'))
         structure = gen_hydrogen()
-        self.report('{}'.format(structure))
+        self.report(f'{structure}')
         inputs.pw.structure = structure
 
         inputs = prepare_process_inputs(PwBaseWorkChain, inputs)
         running = self.submit(PwBaseWorkChain, **inputs)
 
-        self.report('launching PwBaseWorkChain<{}>'.format(running.pk))
+        self.report(f'launching PwBaseWorkChain<{running.pk}>')
 
         return ToContext(workchains=append_(running))
     

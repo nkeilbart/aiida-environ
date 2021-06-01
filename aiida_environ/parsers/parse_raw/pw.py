@@ -284,7 +284,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                         lattice_parameter_b = float(lattice[1])
                         if abs(lattice_parameter_b - alat) > lattice_tolerance:
                             raise QEOutputParsingError(
-                                'Lattice parameters mismatch! ' + '{} vs {}'.format(lattice_parameter_b, alat)
+                                'Lattice parameters mismatch! ' + f'{lattice_parameter_b} vs {alat}'
                             )
                     elif 'bohr' in lattice[0].lower():
                         lattice_parameter_b *= CONSTANTS.bohr_to_ang
@@ -433,7 +433,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                             else:
                                 break
                     else:
-                        raise KeyError('could not find and parse the line with `{}`'.format(marker))
+                        raise KeyError(f'could not find and parse the line with `{marker}`'.)
 
                     for key, value in [['energy', En], ['energy_accuracy', E_acc]]:
                         trajectory_data.setdefault(key, []).append(value)
@@ -585,7 +585,7 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                         parsed_data['stress' + units_suffix] = default_stress_units
                 except Exception:
                     import traceback
-                    logs.warning.append('Error while parsing stress tensor: {}'.format(traceback.format_exc()))
+                    logs.warning.append(f'Error while parsing stress tensor: {traceback.format_exc()}')
 
             # Electronic and ionic dipoles when 'lelfield' was set to True in input parameters
             elif lelfield is True:

@@ -556,8 +556,8 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         self.ctx.restart_calc = None
         self.ctx.inputs.parameters.setdefault('ELECTRONS', {})['mixing_beta'] = mixing_beta_new
         self.ctx.inputs.structure = calculation.outputs.output_structure
-        action = 'no electronic convergence but clean shutdown: reduced beta mixing from {} to {} restarting from ' \
-                 'scratch but using output structure.'.format(mixing_beta, mixing_beta_new)
+        action = f'no electronic convergence but clean shutdown: reduced beta mixing from {mixing_beta} to {mixing_beta_new} ' \
+                  'restarting from scratch but using output structure.'
         self.report_error_handled(calculation, action)
         return ProcessHandlerReport(True)
 

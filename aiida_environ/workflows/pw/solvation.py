@@ -63,7 +63,7 @@ class PwSolvationWorkChain(WorkChain):
         inputs = prepare_process_inputs(EnvPwCalculation, inputs)
         running = self.submit(EnvPwCalculation, **inputs)
 
-        self.report('launching EnvPwCalculation<{}>'.format(running.pk))
+        self.report(f'launching EnvPwCalculation<{running.pk}>')
 
         return ToContext(workchains = append_(running))
     
@@ -90,7 +90,7 @@ class PwSolvationWorkChain(WorkChain):
         inputs = prepare_process_inputs(EnvPwCalculation, inputs)
         running = self.submit(EnvPwCalculation, **inputs)
 
-        self.report('launching EnvPwCalculation<{}>'.format(running.pk))
+        self.report(f'launching EnvPwCalculation<{running.pk}>')
         
         return ToContext(workchains = append_(running))
     
