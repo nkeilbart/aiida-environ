@@ -10,39 +10,33 @@ import node_assignment
 import numpy as np
 
 # try loading aiida-environ, everything stored as nodes already
-code = load_code(357)
+code = load_code(1958)
 builder = code.get_builder()
 builder.metadata.label = "Environ test"
 builder.metadata.description = "Test of environ plugin"
-builder.metadata.options.resources = {'num_machines': 1}
+builder.metadata.options.resources = {
+        'num_machines': 1,
+        'tot_num_mpiprocs': 8,
+        'num_mpiprocs_per_machine': 8
+}
 builder.metadata.options.max_wallclock_seconds = 30 * 60
 
 StructureData = DataFactory('structure')
-unit_cell = [[6.3046, 0, 0], [-3.152205, 5.459999, 0], [0, 0, 23.1547]]
+unit_cell = [[3.1523, 0, 0], [-1.5761, 2.7300, 0], [0, 0, 23.1547]]
 structure = StructureData(cell=unit_cell)
 unit_cell = np.array(unit_cell)
-structure.append_atom(position=tuple(np.array([1/6, 1/3, 1/2]) @ unit_cell), symbols="Mo")
-structure.append_atom(position=tuple(np.array([1/3, 1/6, 1/2-0.0676]) @ unit_cell), symbols="S")
-structure.append_atom(position=tuple(np.array([1/3, 1/6, 1/2+0.0676]) @ unit_cell), symbols="S")
-structure.append_atom(position=tuple(np.array([1/6, 5/6, 1/2]) @ unit_cell), symbols="Mo")
-structure.append_atom(position=tuple(np.array([1/3, 2/3, 1/2-0.0676]) @ unit_cell), symbols="S")
-structure.append_atom(position=tuple(np.array([1/3, 2/3, 1/2+0.0676]) @ unit_cell), symbols="S")
-structure.append_atom(position=tuple(np.array([2/3, 1/3, 1/2]) @ unit_cell), symbols="Mo")
-structure.append_atom(position=tuple(np.array([5/6, 1/6, 1/2-0.0676]) @ unit_cell), symbols="S")
-structure.append_atom(position=tuple(np.array([5/6, 1/6, 1/2+0.0676]) @ unit_cell), symbols="S")
-structure.append_atom(position=tuple(np.array([2/3, 5/6, 1/2]) @ unit_cell), symbols="Mo")
-structure.append_atom(position=tuple(np.array([5/6, 2/3, 1/2-0.0676]) @ unit_cell), symbols="S")
-structure.append_atom(position=tuple(np.array([5/6, 2/3, 1/2+0.0676]) @ unit_cell), symbols="S")
+structure.append_atom(position=tuple(np.array([1/3, 2/3, 1/2]) @ unit_cell), symbols="Mo")
+structure.append_atom(position=tuple(np.array([2/3, 1/3, 1/2-0.0676]) @ unit_cell), symbols="S")
+structure.append_atom(position=tuple(np.array([2/3, 1/3, 1/2+0.0676]) @ unit_cell), symbols="S")
 
 KpointsData = DataFactory('array.kpoints')
 kpoints_mesh = KpointsData()
-kpoints_mesh.set_kpoints_mesh([10, 10, 1])
+kpoints_mesh.set_kpoints_mesh([1, 1, 1])
 
 parameters = {
     "CONTROL": {
         "calculation": "relax",
         "forc_conv_thr": 1e-3,
-        "nstep": 100,
     },
     "SYSTEM": {
         "ecutwfc": 45,
@@ -50,14 +44,14 @@ parameters = {
         "occupations": "smearing",
         "degauss": 0.02,
         "smearing": "cold",
-        "tot_charge": -1.0,
+        "tot_charge": 0.0,
         "input_dft": "vdw-df2-c09",
     },
     "ELECTRONS": {
         "electron_maxstep": 200,
-        "conv_thr": 5e-9,
+        "conv_thr": 1e-6,
         "mixing_mode": "local-TF",
-        "mixing_beta": 0.7
+        "mixing_beta": 0.4
     },
     "IONS": {
         "ion_dynamics": "bfgs",
@@ -72,8 +66,8 @@ environ_parameters = {
         "env_static_permittivity": 78.3,
         "environ_type": 'water',
         "env_external_charges": 2,
-        "system_dim": 3,
-        "system_axis": 2,
+        "system_dim": 2,
+        "system_axis": 3,
         "solvent_temperature": 300,
     },
     "BOUNDARY": {
