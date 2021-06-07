@@ -213,20 +213,25 @@ def adsorbate_gen_supercell(size_l, structure, vacancies):
 
     # TODO: use solution for adsorbate_multitype_gen
     struct_list = []
+    added = []
     for i, ads_configuration in enumerate(struct_perms):
+        added_ads = 0
         new_structure = StructureData(cell=structure.cell)
         for site in structure.sites:
             new_structure.append_atom(position=site.position, symbols=site.kind_name)
         for site_configuration, pos in zip(ads_configuration, vacancies):
             for sp in site_configuration:
                 if sp != 0:
+                    added_ads += 1
                     new_structure.append_atom(position=pos, symbols=sp)
         new_structure.store()
         struct_list.append(new_structure.pk)
+        added.append(added_ads)
 
     struct_list = List(list=struct_list)
+    added = List(list=added)
 
-    return struct_list
+    return struct_list, added
 
 
 def gen_hydrogen():
