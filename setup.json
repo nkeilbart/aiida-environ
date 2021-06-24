@@ -22,7 +22,7 @@
             "environ.pw.relax = aiida_environ.workflows.pw.relax:EnvPwRelaxWorkChain",
             "environ.pw.solvation = aiida_environ.workflows.pw.solvation:PwSolvationWorkChain",
             "environ.pw.graphml = aiida_environ.workflows.pw.adsorbate:AdsorbateGraphConfiguration",
-            "environ.pw.grandcanonical = aiida_environ.workflows.pw.adsorbate:AdsorbateGrandCanonical"
+            "environ.pw.grandcanonical = aiida_environ.workflows.pw.grandcanonical:AdsorbateGrandCanonical"
         ]
     },
     "extras_require": {

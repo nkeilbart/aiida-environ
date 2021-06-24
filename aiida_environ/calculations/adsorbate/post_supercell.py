@@ -1,4 +1,5 @@
-from math import gcd, reduce
+from math import gcd
+from functools import reduce
 import numpy as np
 from scipy import interpolate
 

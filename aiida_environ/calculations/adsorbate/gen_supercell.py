@@ -5,8 +5,8 @@ from collections import OrderedDict
 
 import numpy as np
 
-from aiida.engine import calcfunction
-from aiida.orm import StructureData, List
+from aiida.engine import CalcJob
+from aiida.orm import StructureData, List, Dict
 
 
 def gen_structures_n(size: Tuple[int, int], n: int) -> List:
@@ -179,8 +179,8 @@ def test_symmetry(i1: List, i2: List) -> bool:
 
 
 @calcfunction
-def adsorbate_gen_supercell(size_l, structure, vacancies):
-    size = tuple(size_l)
+def adsorbate_gen_supercell(parameters, structure, vacancies):
+    size = (parameters['cell_shape_x'], parameters['cell_shape_y'])
     n = size[0] * size[1]
     perms = []
     # 0 case (not stored)
@@ -232,6 +232,21 @@ def adsorbate_gen_supercell(size_l, structure, vacancies):
     added = List(list=added)
 
     return struct_list, added
+
+class GenSupercell(CalcJob):
+    
+    @classmethod
+    def define(cls, spec):
+        super().define(spec)
+        spec.input('calculation_parameters', valid_type=Dict)
+        spec.input('structure', valid_type=StructureData)
+        spec.input('vacancies', valid_type=List)
+        spec.output('output_structs', valid_type=List)
+        spec.output('num_adsorbate', valid_type=List)
+
+    
+
+
 
 
 def gen_hydrogen():
