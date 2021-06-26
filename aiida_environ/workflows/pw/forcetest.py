@@ -11,7 +11,7 @@ builder.metadata.description = 'finite difference force test'
 
 def find_pwscf_calcs():
 
-    '''i/o query -- working'''
+    '''finds previous pwscf calcs to test, using i/o query -- working'''
 
     qb = QueryBuilder()
     qb.append(
@@ -38,7 +38,7 @@ def find_pwscf_calcs():
 
 def run_pwscf(id):
 
-    '''runs pwscf with a displaced atom in a cell -- working'''
+    '''runs pwscf with a displaced atom in a cell -- in progress'''
 
     calc = load_node(pk)
     traj = calc.outputs.output_trajectory
@@ -73,7 +73,7 @@ def run_pwscf(id):
 
 def main():
     
-    '''pwscf finite difference force test -- in progress'''
+    '''compares finite difference forces with dft forces -- in progress'''
 
     find_pwscf_calcs()
     pk = input('Select a calculation for testing (Enter a PK): ')
