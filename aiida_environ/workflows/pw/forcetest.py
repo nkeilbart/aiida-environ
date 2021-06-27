@@ -36,14 +36,14 @@ def find_pwscf_calcs():
         calc = process[0]
         pks.append(calc.pk)
         nats.append( len(calc.inputs.structure.sites) )
+    print('\nPWscf calculations run in the last week')
     print( DataFrame(data={'PK': pks, 'nat': nats}) ) # display legibly
     return
 
-def run_test(id):
+def run_test(dx, id):
 
     '''runs pwscf with a displaced atom in a cell -- working'''
     
-    dx = 0.01
     pks = [id]
     energies = [] # add last pwscf total energy
     forces = [] # add last pwscf total force
@@ -83,6 +83,12 @@ def run_test(id):
             testcalc = submit(builder) # submit new pwscf
             print()
             while testcalc.is_finished_ok != True:
+                if testcalc.is_failed == True:
+                    print(f'\nProcess failed: {testcalc.exit_status}\n')
+                    quit()
+                elif testcalc.is_excepted == True:
+                    print('\nAn error occurred\n')
+                    quit()
                 print(testcalc.pk, '\t', testcalc.process_state)
                 time.sleep(5)
         else:
@@ -96,11 +102,12 @@ def run_test(id):
 
 def main():
     
-    '''compares finite difference forces with dft forces -- in progress'''
+    '''compares finite difference forces with dft forces -- debugging'''
 
     find_pwscf_calcs()
-    pk = input('\nSelect a calculation for testing (Enter a PK): ')
-    jobs, pwenergies, pwforces = run_test(pk)
+    dx = 0.01
+    pk = input('\nSelect a previous calculation for testing (Enter a PK): ')
+    jobs, pwenergies, pwforces = run_test(dx, pk)
     finforces = ['-']
     for i in range(2, len(pwenergies) - 1):
          finforces.append( (pwenergies[i-1] - pwenergies[i+1]) / (2*dx) )
