@@ -1,13 +1,13 @@
+
+import time
 import random
 import numpy as np
 from pandas import DataFrame
-from datetime import datetime, deltatime
+from datetime import datetime, timedelta
 from aiida.orm.utils import load_node
-from aiida.engine import run # change to submit
+from aiida.engine import submit
 
 PwCalculation = CalculationFactory('quantumespresso.pw') # str to be: 'environ.pw'
-builder.metadata.label = 'pw scf force test'
-builder.metadata.description = 'finite difference force test'
 
 def find_pwscf_calcs():
 
@@ -15,72 +15,98 @@ def find_pwscf_calcs():
 
     qb = QueryBuilder()
     qb.append(
+        Dict,
+        tag='parameters',
+        filters={
+            'attributes.CONTROL.calculation': 'scf',
+            'attributes.CONTROL.tprnfor': True,
+        }
+    )
+    qb.append(
         PwCalculation, # find pw process nodes
-        tag='calculation',
+        with_incoming='parameters',
         filters={
             'attributes.process_state': 'finished', # completed jobs only
             'attributes.exit_status': 0, # error free jobs only
             'ctime': {'>': datetime.now() - timedelta(days=7)} # recent jobs only - 1 week
         }
     )
-    qb.append(
-        Dict, # find pw parameter nodes
-        with_outgoing='calculation',
-        filters={'attributes.CONTROL.calculation': 'scf'} # scf jobs only
-    )
     pks, nats = [], []
     for process in qb.all():
         calc = process[0]
         pks.append(calc.pk)
-        nats.append( len(calc.inputs.structure.attributes['sites']) )
-    DataFrame(data={'PK': pks, 'nat': nats}) # display legibly
+        nats.append( len(calc.inputs.structure.sites) )
+    print( DataFrame(data={'PK': pks, 'nat': nats}) ) # display legibly
     return
 
-def run_pwscf(id):
+def run_test(id):
 
-    '''runs pwscf with a displaced atom in a cell -- in progress'''
-
-    calc = load_node(pk)
-    traj = calc.outputs.output_trajectory
-    posarray = traj.get_array('positions')[0]
-    index = random.randint(0, len(calc.inputs.structure.attributes['sites']) # random atom index
-    position = posarray[index] # atom position
-    cellmax = calc.inputs.structure.cell_lengths[0] # max x-length
-
+    '''runs pwscf with a displaced atom in a cell -- working'''
+    
     dx = 0.01
-    energies = [calc.res.energy] # add last pwscf total energy
-    forces = [calc.res.total_force] # add last pwscf total force
+    pks = [id]
+    energies = [] # add last pwscf total energy
+    forces = [] # add last pwscf total force
     for i in range(5):
-        position[0] = position[0] + dx # translate atom
+        if i == 0:
+            calc = load_node(id)
+        else:
+            calc = load_node(testcalc.pk)
+        energies.append(calc.res.energy) # add new energy
+        forces.append(calc.res.total_force) # add new force
+        ucell = calc.inputs.structure.cell
+        sites = calc.inputs.structure.sites
+        nat = len(sites)
+        if i == 0:
+            index = random.randint(0, nat-1) # random atom index
+        position = sites[index].position # atom position
+        cellmax = calc.inputs.structure.cell_lengths[0] # max x-length
+        testpos = (position[0] + dx,) + position[1:] # translate atom
         if (cellmax - position[0]) > 0.001: # keep particle within cell
-            posarray[index] = position # update array
+            sites[index].position = testpos # update array
             builder = PwCalculation.get_builder()
-            builder.structure = posarray
+            builder.metadata.label = 'pw scf force test'
+            builder.metadata.description = 'finite difference force test'
+            builder.metadata.options.resources = {'num_machines': 1, 'num_mpiprocs_per_machine': 2}
+            builder.metadata.dry_run = False
+            builder.metadata.store_provenance = True
+            builder.code = calc.inputs.code
             builder.pseudos = calc.inputs.pseudos
             builder.kpoints = calc.inputs.kpoints
             builder.parameters = calc.inputs.parameters
-            tprnfr = parameters['CONTROL']['tprnfor']
-            if tprnfr not True: parameters['CONTROL']['tprnfor'] = True
-            testcalc = run(builder) # submit new pwscf
-            energies.append(testcalc.res.energy) # add new energy
-            forces.append(testcalc.res.total_force) # add new force
+            builder.settings = calc.inputs.settings # KPOINTS gamma
+            StructureData = DataFactory('structure')
+            configuration = StructureData(cell=ucell)
+            for i in range(nat):
+                configuration.append_atom(position=sites[i].position, symbols=sites[i].kind_name)
+            builder.structure = configuration
+            testcalc = submit(builder) # submit new pwscf
+            print()
+            while testcalc.is_finished_ok != True:
+                print(testcalc.pk, '\t', testcalc.process_state)
+                time.sleep(5)
         else:
-            break
-            print('New atom position is outside cell bounds')
-    builder.metadata.dry_run = True
-    builder.metadata.store_provenance = False
-    return energies, forces
+            print('New atom position may be outside cell bounds')
+            quit()
+        pks.append(testcalc.pk)
+        energies.append(calc.res.energy)
+        forces.append(calc.res.total_force)
+    print('\nTest completed\n')
+    return pks, energies, forces
 
 def main():
     
     '''compares finite difference forces with dft forces -- in progress'''
 
     find_pwscf_calcs()
-    pk = input('Select a calculation for testing (Enter a PK): ')
-    pwenergies, pwforces = run_test(pk)
+    pk = input('\nSelect a calculation for testing (Enter a PK): ')
+    jobs, pwenergies, pwforces = run_test(pk)
     finforces = ['-']
     for i in range(2, len(pwenergies) - 1):
-         finforces.append(pwenergies[f'{i}-1'] - pwenergies[f'{i}+1']) / (2*dr))
+         finforces.append( (pwenergies[i-1] - pwenergies[i+1]) / (2*dx) )
+    finforces.append('-')
+    print( DataFrame( \
+        data={'PK': jobs, 'dft E': pwenergies, 'dft F': pwforces, 'fin F': finforces}) ) # display legibly
 
 main()
 
