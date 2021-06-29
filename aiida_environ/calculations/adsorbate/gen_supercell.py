@@ -5,7 +5,8 @@ from collections import OrderedDict
 
 import numpy as np
 
-from aiida.engine import CalcJob
+from aiida.engine import calcfunction
+from aiida.orm.utils import load_node
 from aiida.orm import StructureData, List, Dict
 
 
@@ -181,6 +182,8 @@ def test_symmetry(i1: List, i2: List) -> bool:
 @calcfunction
 def adsorbate_gen_supercell(parameters, structure, vacancies):
     size = (parameters['cell_shape_x'], parameters['cell_shape_y'])
+    reflect = parameters['reflect_vacancies']
+    axis = parameters['system_axis']
     n = size[0] * size[1]
     perms = []
     # 0 case (not stored)
@@ -224,6 +227,17 @@ def adsorbate_gen_supercell(parameters, structure, vacancies):
                 if sp != 0:
                     added_ads += 1
                     new_structure.append_atom(position=pos, symbols=sp)
+                    if reflect:
+                        added_ads += 1
+                        rpos = list(pos)
+                        # assume that the structure has symmetry around the provided axis, so
+                        # take the position of the axis as the mean value
+                        apos = 0.0
+                        for site in structure.sites:
+                            apos += site.position[axis-1]
+                        apos /= len(structure.sites)
+                        rpos[axis-1] = 2 * apos - rpos[axis-1]
+                        new_structure.append_atom(position=tuple(rpos), symbols=sp)
         new_structure.store()
         struct_list.append(new_structure.pk)
         added.append(added_ads)
@@ -231,24 +245,10 @@ def adsorbate_gen_supercell(parameters, structure, vacancies):
     struct_list = List(list=struct_list)
     added = List(list=added)
 
-    return struct_list, added
-
-class GenSupercell(CalcJob):
-    
-    @classmethod
-    def define(cls, spec):
-        super().define(spec)
-        spec.input('calculation_parameters', valid_type=Dict)
-        spec.input('structure', valid_type=StructureData)
-        spec.input('vacancies', valid_type=List)
-        spec.output('output_structs', valid_type=List)
-        spec.output('num_adsorbate', valid_type=List)
-
-    
+    return { 'output_structs': struct_list, 'num_adsorbate': added }
 
 
-
-
+@calcfunction
 def gen_hydrogen():
     cell = [[10.0, 0.0, 0.0], [0.0, 10.0, 0.0], [0.0, 0.0, 10.0]]
     struct = StructureData(cell=cell)

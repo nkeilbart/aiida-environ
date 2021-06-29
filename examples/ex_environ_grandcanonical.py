@@ -16,6 +16,9 @@ builder.metadata.label = "Environ test"
 builder.metadata.description = "Test of environ GC workchain"
 builder.base.pw.metadata.options.resources = {'num_machines': 1}
 builder.base.pw.metadata.options.max_wallclock_seconds = 30 * 60
+builder.base.pw.metadata.options.account = "pi_mbn0025"
+builder.base.pw.metadata.options.queue_name = "production"
+builder.base.pw.metadata.options.qos = "general"
 builder.base.pw.code = code
 
 StructureData = DataFactory('structure')
@@ -68,7 +71,7 @@ environ_parameters = {
         "env_external_charges": 2,
         "system_dim": 2,
         "system_axis": 3,
-        "solvent_temperature": 300,
+        "temperature": 300,
     },
     "BOUNDARY": {
         "rhomax": 0.01025,
@@ -94,13 +97,12 @@ calculation_parameters = {
     "charge_min": -0.2,
     "charge_inc": 0.1,
     "charge_spread": 0.5,
-    "charge_axis": 3,
-    "charge_dim": 2,
+    "system_axis": 3,
     "cell_shape_x": 1,
     "cell_shape_y": 1,
 }
 
-builder.vacancies = List(list=[tuple(np.array([2/3, 1/3, 1/2+0.0676]) @ unit_cell + np.array([0, 0, 2.5]))])
+builder.vacancies = List(list=[tuple(np.array([2/3, 1/3, 1/2+0.0676]) @ unit_cell + np.array([0, 0, 1.8]))])
 builder.mono_structure = mono_structure
 builder.bulk_structure = bulk_structure
 builder.calculation_parameters = Dict(dict=calculation_parameters)
