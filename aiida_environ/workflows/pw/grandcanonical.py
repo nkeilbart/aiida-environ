@@ -37,6 +37,7 @@ class AdsorbateGrandCanonical(WorkChain):
         )
 
     def setup(self):
+        self.ctx.environ_parameters = self.inputs.base.pw.environ_parameters
         self.ctx.calculation_details = {}
         calculation_parameters = self.inputs.calculation_parameters.get_dict()
         calculation_parameters.setdefault('charge_distance', 5.0)
@@ -99,7 +100,7 @@ class AdsorbateGrandCanonical(WorkChain):
                 self.report(f'{structure}')
                 inputs.pw.structure = structure
                 inputs.pw.parameters["SYSTEM"]["tot_charge"] = charge_amt
-                inputs.pw.parameters["ELECTRONS"]["mixing_mode"] = "local-tf"
+                inputs.pw.parameters["ELECTRONS"]["mixing_mode"] = "local-TF"
                 inputs.pw.external_charges = charges
                 inputs.pw.pseudos = get_pseudos_from_structure(structure, 'SSSPe')
                 inputs.metadata.call_link_label = f's{j}_c{i}'
@@ -127,12 +128,13 @@ class AdsorbateGrandCanonical(WorkChain):
         self.report(f'{structure}')
         inputs.pw.structure = structure
         inputs.pw.pseudos = get_pseudos_from_structure(structure, 'SSSPe')
-        inputs.metadata.call_link_label = f'sbulk_c{i}'
+        inputs.metadata.call_link_label = 'sbulk'
+        inputs.pw.metadata.options.parser_name = 'quantumespresso.pw'
         delattr(inputs.pw.metadata.options, 'debug_filename')
         delattr(inputs.pw, 'environ_parameters')
         inputs = prepare_process_inputs(PwBaseWorkChain, inputs)
         running = self.submit(PwBaseWorkChain, **inputs)
-        self.report(f'<sbulk_c{i}> launching PwBaseWorkChain<{running.pk}>')
+        self.report(f'<sbulk> launching PwBaseWorkChain<{running.pk}>')
         self.ctx.calculation_details["bulk"] = running.pk
 
         # hydrogen simulation
@@ -142,9 +144,12 @@ class AdsorbateGrandCanonical(WorkChain):
         inputs.pw.pseudos = get_pseudos_from_structure(structure, 'SSSPe')
         inputs.pw.structure = structure
         inputs.metadata.call_link_label = 'sads_neutral'
+        inputs.pw.metadata.options.parser_name = 'quantumespresso.pw'
         inputs = prepare_process_inputs(PwBaseWorkChain, inputs)
+        delattr(inputs.pw.metadata.options, 'debug_filename')
+        delattr(inputs.pw, 'environ_parameters')
         running = self.submit(PwBaseWorkChain, **inputs)
-        self.report(f'<sads_neutral> launching EnvPwBaseWorkChain<{running.pk}>')
+        self.report(f'<sads_neutral> launching PwBaseWorkChain<{running.pk}>')
         self.ctx.calculation_details["adsorbate"] = running.pk
 
         self.report(f'calc_details written: {self.ctx.calculation_details}')

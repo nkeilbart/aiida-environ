@@ -252,6 +252,6 @@ def adsorbate_gen_supercell(parameters, structure, vacancies):
 def gen_hydrogen():
     cell = [[10.0, 0.0, 0.0], [0.0, 10.0, 0.0], [0.0, 0.0, 10.0]]
     struct = StructureData(cell=cell)
-    struct.append_atom(position=(0.3704, 0.0, 0.0), symbols="H")
-    struct.append_atom(position=(-0.3704, 0.0, 0.0), symbols="H")
+    struct.append_atom(position=(0.3770, 0.0, 0.0), symbols="H")
+    struct.append_atom(position=(-0.3770, 0.0, 0.0), symbols="H")
     return struct
