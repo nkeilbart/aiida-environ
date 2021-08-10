@@ -714,15 +714,20 @@ def parse_debug(debug, parser_options=None):
     parsed_data = {}
 
     # now grep quantities that can be considered isolated informations.
+    bohr_to_angstrom = 0.529177
     for count, line in enumerate(data_lines):
         if 'volume of the QM region' in line:
             qm_volume = float(line.split('=')[1].strip())
+            # convert units from QE-internal to AiiDA
+            # TODO: these constants probably exist in the AiiDA package, so replace them
+            qm_volume *= bohr_to_angstrom ** 3
             if 'qm_volume' not in parsed_data:
                 parsed_data['qm_volume'] = [qm_volume]
             else:
                 parsed_data['qm_volume'].append(qm_volume)
         if 'surface of the QM region' in line:
             qm_surface = float(line.split('=')[1].strip())
+            qm_surface *= bohr_to_angstrom ** 2
             if 'qm_surface' not in parsed_data:
                 parsed_data['qm_surface'] = [qm_surface]
             else:
