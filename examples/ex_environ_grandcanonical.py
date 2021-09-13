@@ -48,7 +48,7 @@ parameters = {
         "degauss": 0.02,
         "smearing": "cold",
         "tot_charge": -0.2,
-        "input_dft": "vdw-df2-c09",
+        "input_dft": "VDW-DF2-C09",
     },
     "ELECTRONS": {
         "electron_maxstep": 200,
@@ -102,6 +102,7 @@ calculation_parameters = {
     "cell_shape_y": 1,
 }
 
+# TODO need to fix position, use talon /storage/scratch2/mat0330/aiida/4e/99/c6f1-44b0-481b-bd94-ee5f33801924 as ref
 builder.vacancies = List(list=[tuple(np.array([2/3, 1/3, 1/2+0.0676]) @ unit_cell + np.array([0, 0, 1.8]))])
 builder.mono_structure = mono_structure
 builder.bulk_structure = bulk_structure
