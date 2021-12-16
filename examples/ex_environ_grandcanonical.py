@@ -5,21 +5,19 @@ from aiida.engine import submit
 from aiida.orm import List, Dict, StructureData
 from aiida.orm.nodes.data.upf import get_pseudos_from_structure
 from aiida.plugins.factories import WorkflowFactory, DataFactory
-import node_assignment
+
+from aiida_quantumespresso.utils.resources import get_default_options
+
+from make_inputs import *
 
 # Once this runs right, just comment out dicts and load_node
 # try loading aiida-environ, everything stored as nodes already
 code = load_code(357)
 workchain = WorkflowFactory('environ.pw.grandcanonical')
 builder = workchain.get_builder()
-builder.metadata.label = "Environ test"
-builder.metadata.description = "Test of environ GC workchain"
-builder.base.pw.metadata.options.resources = {'num_machines': 1}
-builder.base.pw.metadata.options.max_wallclock_seconds = 30 * 60
-builder.base.pw.metadata.options.account = "pi_mbn0025"
-builder.base.pw.metadata.options.queue_name = "production"
-builder.base.pw.metadata.options.qos = "general"
-builder.base.pw.code = code
+builder.metadata.label = "environ example"
+builder.metadata.description = "environ.pw grand canonical"
+builder.metadata.options = get_default_options()
 
 StructureData = DataFactory('structure')
 unit_cell = [[3.1523, 0, 0], [-1.5761, 2.7300, 0], [0, 0, 23.1547]]
@@ -31,10 +29,6 @@ mono_structure.append_atom(position=tuple(np.array([2/3, 1/3, 1/2+0.0676]) @ uni
 
 import ase.io
 bulk_structure = StructureData(ase=ase.io.read("MoS2_bulk.cif"))
-
-KpointsData = DataFactory('array.kpoints')
-kpoints_mesh = KpointsData()
-kpoints_mesh.set_kpoints_mesh([1, 1, 1])
 
 parameters = {
     "CONTROL": {
@@ -107,7 +101,7 @@ builder.vacancies = List(list=[tuple(np.array([2/3, 1/3, 1/2+0.0676]) @ unit_cel
 builder.mono_structure = mono_structure
 builder.bulk_structure = bulk_structure
 builder.calculation_parameters = Dict(dict=calculation_parameters)
-builder.base.kpoints = kpoints_mesh
+builder.base.kpoints = make_simple_kpoints()
 builder.base.pw.parameters = Dict(dict=parameters)
 builder.base.pw.pseudos = get_pseudos_from_structure(mono_structure, 'SSSPe')
 builder.base.pw.environ_parameters = Dict(dict=environ_parameters)

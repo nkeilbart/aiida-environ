@@ -15,7 +15,7 @@ class AdsorbateGraphConfiguration(WorkChain):
         spec.expose_inputs(PwBaseWorkChain, namespace='base',
             exclude=('clean_workdir', 'pw.structure', 'pw.parent_folder'),
             namespace_options={'help': 'Inputs for the `PwBaseWorkChain`.'})
-        spec.input('vacancies', valid_type=List) # List of 3-tuples
+        spec.input('adsorbate_sites', valid_type=List) # List of 3-tuples
         spec.input('site_index', valid_type=List) # List of ints
         spec.input('possible_adsorbates', valid_type=List) # List of structures
         spec.input('adsorbate_index', valid_type=List) # List of Lists of Ints
@@ -32,7 +32,7 @@ class AdsorbateGraphConfiguration(WorkChain):
 
     def selection(self):
         self.ctx.struct_list = adsorbate_gen_multitype(
-            self.inputs.site_index, self.inputs.possible_adsorbates, self.inputs.adsorbate_index, self.inputs.structure, self.inputs.vacancies)   
+            self.inputs.site_index, self.inputs.possible_adsorbates, self.inputs.adsorbate_index, self.inputs.structure, self.inputs.adsorbate_sites)   
 
     def simulate(self):
         for structure_pk in self.ctx.struct_list:
