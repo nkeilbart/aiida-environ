@@ -15,7 +15,7 @@ workchain = WorkflowFactory('environ.pw.solvation')
 builder = workchain.get_builder()
 builder.metadata.label = "environ example"
 builder.metadata.description = "environ.pw solvation workflow"
-builder.metadata.options = get_default_options()
+builder.base.pw.metadata.options = get_default_options()
 
 environ_parameters = {
     "ENVIRON": {
@@ -48,11 +48,12 @@ environ_solution = {
     }
 }              
 
-builder.pw.structure = make_organic_structure()
-builder.pw.kpoints = make_simple_kpoints()
-builder.pw.parameters = make_simple_parameters()
-builder.pw.pseudos = get_pseudos_from_structure(builder.pw.structure, 'SSSPe')
-builder.pw.environ_parameters = Dict(dict=environ_parameters)
+builder.base.pw.code = code
+builder.base.pw.structure = make_organic_structure()
+builder.base.kpoints = make_simple_kpoints()
+builder.base.pw.parameters = make_simple_parameters()
+builder.base.pw.pseudos = get_pseudos_from_structure(builder.base.pw.structure, 'SSSPe')
+builder.base.pw.environ_parameters = Dict(dict=environ_parameters)
 builder.environ_vacuum = Dict(dict=environ_vacuum)
 builder.environ_solution = Dict(dict=environ_solution)
 

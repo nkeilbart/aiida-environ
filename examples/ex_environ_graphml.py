@@ -51,6 +51,7 @@ environ_parameters = {
 }
 
 builder.base.kpoints = make_simple_kpoints()
+builder.base.pw.code = code
 builder.base.pw.parameters = make_simple_parameters()
 builder.base.pw.pseudos = get_pseudos_from_structure(structure, 'SSSPe')
 builder.base.pw.environ_parameters = Dict(dict=environ_parameters)

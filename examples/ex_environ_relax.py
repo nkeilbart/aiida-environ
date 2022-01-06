@@ -17,6 +17,7 @@ builder.metadata.options = get_default_options()
 
 builder.structure = make_organic_structure()
 builder.base.kpoints = make_simple_kpoints()
+builder.base.pw.code = code
 builder.base.pw.parameters = make_simple_parameters()
 builder.base.pw.pseudos = get_pseudos_from_structure(builder.structure, 'SSSPe')
 builder.base.pw.environ_parameters = make_simple_environ_parameters()

@@ -141,5 +141,6 @@ cython_debug/
 # for now ignore examples folder
 aiida_environ/tests/
 examples/submit_test/
+usertests/
 .vscode
 .python-version

@@ -102,6 +102,7 @@ builder.mono_structure = mono_structure
 builder.bulk_structure = bulk_structure
 builder.calculation_parameters = Dict(dict=calculation_parameters)
 builder.base.kpoints = make_simple_kpoints()
+builder.base.pw.code = code
 builder.base.pw.parameters = Dict(dict=parameters)
 builder.base.pw.pseudos = get_pseudos_from_structure(mono_structure, 'SSSPe')
 builder.base.pw.environ_parameters = Dict(dict=environ_parameters)
