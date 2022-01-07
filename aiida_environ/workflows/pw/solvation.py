@@ -32,9 +32,11 @@ class PwSolvationWorkChain(WorkChain):
             help='The base parameter input for an environ simulation')
         spec.input('environ_solution', valid_type=Dict, required=False, 
             help='The base parameter input for an environ simulation')
+        spec.input('energy_vacuum', valid_type=Float, required=False,
+            help='The vacuum energy in eV, if provided, skips the vacuum calculation')
         spec.outline(
             cls.setup,
-            cls.run_simulations, #TODO: look into how blocking works. Normally need a tocontext statement otherwise things don't work out nicely.
+            cls.run_simulations,
             cls.post_processing,
             cls.produce_result,
         )
@@ -78,8 +80,14 @@ class PwSolvationWorkChain(WorkChain):
         self.ctx.vacuum_inputs = AttributeDict(self.exposed_inputs(EnvPwBaseWorkChain, namespace='base'))
         self.ctx.solution_inputs = AttributeDict(self.exposed_inputs(EnvPwBaseWorkChain, namespace='base'))
         environ_parameters = self.inputs.base.pw.environ_parameters.get_dict()
-        vacuum_overrides = self.inputs.environ_vacuum.get_dict() or {}
-        solution_overrides = self.inputs.environ_solution.get_dict() or {}
+        if 'environ_vacuum' in self.inputs:
+            vacuum_overrides = self.inputs.environ_vacuum.get_dict()
+        else:
+            vacuum_overrides = {}
+        if 'environ_solution' in self.inputs:
+            solution_overrides = self.inputs.environ_solution.get_dict()
+        else:
+            solution_overrides = {}
         
         self.ctx.vacuum_inputs.pw.environ_parameters = deepcopy(
             recursive_merge(environ_parameters, vacuum_overrides))
@@ -119,12 +127,18 @@ class PwSolvationWorkChain(WorkChain):
 
 
     def run_simulations(self):
+        calculations = {}
+
         if self.ctx.should_run_vacuum:
             vacuum_inputs = prepare_process_inputs(EnvPwBaseWorkChain, self.ctx.vacuum_inputs)
             self.ctx.vacuum_wc = self.submit(EnvPwBaseWorkChain, **vacuum_inputs)
+            calculations["vacuum"] = self.ctx.vacuum_wc
 
         solution_inputs = prepare_process_inputs(EnvPwBaseWorkChain, self.ctx.solution_inputs)
         self.ctx.solution_wc = self.submit(EnvPwBaseWorkChain, **solution_inputs)
+        calculations["solution"] = self.ctx.solution_wc
+
+        return ToContext(**calculations)
 
 
     def post_processing(self): 
@@ -132,7 +146,6 @@ class PwSolvationWorkChain(WorkChain):
         if 'energy_vacuum' in self.inputs:
             e_vacuum = self.inputs.energy_vacuum
         else:
-            self.report(f'output {self.ctx.vacuum_wc.outputs}')
             e_vacuum = self.ctx.vacuum_wc.outputs.output_parameters.get_dict()['energy']
 
         e_solvent = self.ctx.solution_wc.outputs.output_parameters.get_dict()['energy']
