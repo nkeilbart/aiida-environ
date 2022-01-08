@@ -7,7 +7,7 @@ from aiida.engine import ToContext, if_, while_, BaseRestartWorkChain, process_h
 from aiida.plugins import CalculationFactory, GroupFactory
 
 from aiida_quantumespresso.calculations.functions.create_kpoints_from_distance import create_kpoints_from_distance
-from aiida_quantumespresso.common.types import ElectronicType, SpinType
+from aiida_quantumespresso.common.types import ElectronicType, SpinType, RestartType
 from aiida_quantumespresso.utils.defaults.calculation import pw as qe_defaults
 from aiida_quantumespresso.utils.mapping import update_mapping, prepare_process_inputs
 from aiida_quantumespresso.utils.pseudopotential import validate_and_prepare_pseudos_inputs
@@ -16,11 +16,10 @@ from aiida_quantumespresso.utils.resources import cmdline_remove_npools, create_
 
 from aiida_quantumespresso.workflows.protocols.utils import ProtocolMixin
 
-
-
 EnvPwCalculation = CalculationFactory('environ.pw')
 SsspFamily = GroupFactory('pseudo.family.sssp')
 PseudoDojoFamily = GroupFactory('pseudo.family.pseudo_dojo')
+CutoffsPseudoPotentialFamily = GroupFactory('pseudo.family.cutoffs')
 
 
 def validate_pseudo_family(value, _):
@@ -29,6 +28,7 @@ def validate_pseudo_family(value, _):
         import warnings
         from aiida.common.warnings import AiidaDeprecationWarning
         warnings.warn('`pseudo_family` is deprecated, use `pw.pseudos` instead.', AiidaDeprecationWarning)
+
 
 class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
     """Workchain to run a Quantum ESPRESSO pw.x calculation with automated error handling and restarts."""
@@ -73,10 +73,8 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
 
         spec.outline(
             cls.setup,
-            cls.validate_parameters,
             cls.validate_kpoints,
             cls.validate_pseudos,
-            cls.validate_resources,
             if_(cls.should_run_init)(
                 cls.validate_init_inputs,
                 cls.run_init,
@@ -99,9 +97,11 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         spec.exit_code(202, 'ERROR_INVALID_INPUT_KPOINTS',
             message='Neither the `kpoints` nor the `kpoints_distance` input was specified.')
         spec.exit_code(203, 'ERROR_INVALID_INPUT_RESOURCES',
-            message='Neither the `options` nor `automatic_parallelization` input was specified.')
+            message='Neither the `options` nor `automatic_parallelization` input was specified. '
+                    'This exit status has been deprecated as the check it corresponded to was incorrect.')
         spec.exit_code(204, 'ERROR_INVALID_INPUT_RESOURCES_UNDERSPECIFIED',
-            message='The `metadata.options` did not specify both `resources.num_machines` and `max_wallclock_seconds`.')
+            message='The `metadata.options` did not specify both `resources.num_machines` and `max_wallclock_seconds`. '
+                    'This exit status has been deprecated as the check it corresponded to was incorrect.')
         spec.exit_code(210, 'ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_MISSING_KEY',
             message='Required key for `automatic_parallelization` was not specified.')
         spec.exit_code(211, 'ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_UNRECOGNIZED_KEY',
@@ -114,7 +114,17 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
             message='The initialization calculation failed.')
         spec.exit_code(501, 'ERROR_IONIC_CONVERGENCE_REACHED_EXCEPT_IN_FINAL_SCF',
             message='Then ionic minimization cycle converged but the thresholds are exceeded in the final SCF.')
+        spec.exit_code(710, 'WARNING_ELECTRONIC_CONVERGENCE_NOT_REACHED',
+            message='The electronic minimization cycle did not reach self-consistency, but `scf_must_converge` '
+                    'is `False` and/or `electron_maxstep` is 0.')
         # yapf: enable
+
+    @classmethod
+    def get_protocol_filepath(cls):
+        """Return ``pathlib.Path`` to the ``.yaml`` file that defines the protocols."""
+        from importlib_resources import files
+        from aiida_quantumespresso.workflows.protocols import pw as pw_protocols
+        return files(pw_protocols) / 'base.yaml'
 
     @classmethod
     def get_builder_from_protocol(
@@ -130,18 +140,19 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
     ):
         """Return a builder prepopulated with inputs selected according to the chosen protocol.
 
-        :param code: the ``Code`` instance configured for the ``quantumespresso.pw`` plugin.
+        :param code: the ``Code`` instance configured for the ``environ.pw`` plugin.
         :param structure: the ``StructureData`` instance to use.
         :param protocol: protocol to use, if not specified, the default will be used.
         :param overrides: optional dictionary of inputs to override the defaults of the protocol.
         :param electronic_type: indicate the electronic character of the system through ``ElectronicType`` instance.
         :param spin_type: indicate the spin polarization type to use through a ``SpinType`` instance.
         :param initial_magnetic_moments: optional dictionary that maps the initial magnetic moment of each kind to a
-            desired value for a spin polarized calculation. Note that for ``spin_type == SpinType.COLLINEAR`` an initial
-            guess for the magnetic moment is automatically set in case this argument is not provided.
+            desired value for a spin polarized calculation. Note that in case the ``starting_magnetization`` is also
+            provided in the ``overrides``, this takes precedence over the values provided here. In case neither is
+            provided and ``spin_type == SpinType.COLLINEAR``, an initial guess for the magnetic moments is used.
         :return: a process builder instance with all inputs defined ready for launch.
         """
-        from aiida_quantumespresso.workflows.protocols.utils import get_starting_magnetization
+        from aiida_quantumespresso.workflows.protocols.utils import get_starting_magnetization, recursive_merge
 
         if isinstance(code, str):
             code = orm.load_code(code)
@@ -176,8 +187,15 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
                 'install it.'
             ) from exception
 
-        cutoff_wfc, cutoff_rho = pseudo_family.get_recommended_cutoffs(structure=structure, unit='Ry')
+        try:
+            cutoff_wfc, cutoff_rho = pseudo_family.get_recommended_cutoffs(structure=structure, unit='Ry')
+            pseudos = pseudo_family.get_pseudos(structure=structure)
+        except ValueError as exception:
+            raise ValueError(
+                f'failed to obtain recommended cutoffs for pseudo family `{pseudo_family}`: {exception}'
+            ) from exception
 
+        # Update the parameters based on the protocol inputs
         parameters = inputs['pw']['parameters']
         parameters['CONTROL']['etot_conv_thr'] = natoms * meta_parameters['etot_conv_thr_per_atom']
         parameters['ELECTRONS']['conv_thr'] = natoms * meta_parameters['conv_thr_per_atom']
@@ -191,45 +209,54 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
 
         if spin_type is SpinType.COLLINEAR:
             starting_magnetization = get_starting_magnetization(structure, pseudo_family, initial_magnetic_moments)
-
-            parameters['SYSTEM']['nspin'] = 2
             parameters['SYSTEM']['starting_magnetization'] = starting_magnetization
+            parameters['SYSTEM']['nspin'] = 2
 
-        builder.pw['code'] = code  # pylint: disable=no-member
-        builder.pw['pseudos'] = pseudo_family.get_pseudos(structure=structure)  # pylint: disable=no-member
-        builder.pw['structure'] = structure  # pylint: disable=no-member
-        builder.pw['parameters'] = orm.Dict(dict=parameters)  # pylint: disable=no-member
-        builder.pw['metadata'] = inputs['metadata']  # pylint: disable=no-member
+        # If overrides are provided, they are considered absolute
+        if overrides:
+            parameter_overrides = overrides.get('pw', {}).get('parameters', {})
+            parameters = recursive_merge(parameters, parameter_overrides)
+
+            pseudos_overrides = overrides.get('pw', {}).get('pseudos', {})
+            pseudos = recursive_merge(pseudos, pseudos_overrides)
+
+        # pylint: disable=no-member
+        builder = cls.get_builder()
+        builder.pw['code'] = code
+        builder.pw['pseudos'] = pseudos
+        builder.pw['structure'] = structure
+        builder.pw['parameters'] = orm.Dict(dict=parameters)
+        builder.pw['metadata'] = inputs['pw']['metadata']
+        if 'settings' in inputs['pw']:
+            builder.pw['settings'] = orm.Dict(dict=inputs['pw']['settings'])
+        if 'parallelization' in inputs['pw']:
+            builder.pw['parallelization'] = orm.Dict(dict=inputs['pw']['parallelization'])
         builder.clean_workdir = orm.Bool(inputs['clean_workdir'])
         builder.kpoints_distance = orm.Float(inputs['kpoints_distance'])
         builder.kpoints_force_parity = orm.Bool(inputs['kpoints_force_parity'])
+        # pylint: enable=no-member
 
         return builder
 
     def setup(self):
-        """Call the `setup` of the `BaseRestartWorkChain` and then create the inputs dictionary in `self.ctx.inputs`.
+        """Call the ``setup`` of the ``BaseRestartWorkChain`` and create the inputs dictionary in ``self.ctx.inputs``.
 
-        This `self.ctx.inputs` dictionary will be used by the `BaseRestartWorkChain` to submit the calculations in the
-        internal loop.
+        This ``self.ctx.inputs`` dictionary will be used by the ``BaseRestartWorkChain`` to submit the calculations
+        in the internal loop.
+
+        The ``parameters`` and ``settings`` input ``Dict`` nodes are converted into a regular dictionary and the
+        default namelists for the ``parameters`` are set to empty dictionaries if not specified.
         """
         super().setup()
-        self.ctx.restart_calc = None
         self.ctx.inputs = AttributeDict(self.exposed_inputs(EnvPwCalculation, 'pw'))
 
-    def validate_parameters(self):
-        """Validate inputs that might depend on each other and cannot be validated by the spec.
-
-        Also define dictionary `inputs` in the context, that will contain the inputs for the calculation that will be
-        launched in the `run_calculation` step.
-        """
         self.ctx.inputs.parameters = self.ctx.inputs.parameters.get_dict()
-        self.ctx.inputs.settings = self.ctx.inputs.settings.get_dict() if 'settings' in self.ctx.inputs else {}
-
-        if 'parent_folder' in self.ctx.inputs:
-            self.ctx.restart_calc = self.ctx.inputs.parent_folder.creator
-
         self.ctx.inputs.parameters.setdefault('CONTROL', {})
+        self.ctx.inputs.parameters.setdefault('ELECTRONS', {})
+        self.ctx.inputs.parameters.setdefault('SYSTEM', {})
         self.ctx.inputs.parameters['CONTROL'].setdefault('calculation', 'scf')
+
+        self.ctx.inputs.settings = self.ctx.inputs.settings.get_dict() if 'settings' in self.ctx.inputs else {}
 
     def validate_kpoints(self):
         """Validate the inputs related to k-points.
@@ -273,26 +300,6 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
             self.report(f'{exception}')
             return self.exit_codes.ERROR_INVALID_INPUT_PSEUDO_POTENTIALS
 
-    def validate_resources(self):
-        """Validate the inputs related to the resources.
-
-        One can omit the normally required `options.resources` input for the `EnvPwCalculation`, as long as the input
-        `automatic_parallelization` is specified. If this is not the case, the `metadata.options` should at least
-        contain the options `resources` and `max_wallclock_seconds`, where `resources` should define the `num_machines`.
-        """
-        if 'automatic_parallelization' not in self.inputs and 'options' not in self.ctx.inputs.metadata:
-            return self.exit_codes.ERROR_INVALID_INPUT_RESOURCES
-
-        # If automatic parallelization is not enabled, we better make sure that the options satisfy minimum requirements
-        if 'automatic_parallelization' not in self.inputs:
-            num_machines = self.ctx.inputs.metadata.options.get('resources', {}).get('num_machines', None)
-            max_wallclock_seconds = self.ctx.inputs.metadata.options.get('max_wallclock_seconds', None)
-
-            if num_machines is None or max_wallclock_seconds is None:
-                return self.exit_codes.ERROR_INVALID_INPUT_RESOURCES_UNDERSPECIFIED
-
-            self.set_max_seconds(max_wallclock_seconds)
-
     def set_max_seconds(self, max_wallclock_seconds):
         """Set the `max_seconds` to a fraction of `max_wallclock_seconds` option to prevent out-of-walltime problems.
 
@@ -301,6 +308,36 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         max_seconds_factor = self.defaults.delta_factor_max_seconds
         max_seconds = max_wallclock_seconds * max_seconds_factor
         self.ctx.inputs.parameters['CONTROL']['max_seconds'] = max_seconds
+
+    def set_restart_type(self, restart_type, parent_folder=None):
+        """Set the restart type for the next iteration."""
+
+        if parent_folder is None and restart_type != RestartType.FROM_SCRATCH:
+            raise ValueError('When not restarting from scratch, a `parent_folder` must be provided.')
+
+        if restart_type == RestartType.FROM_SCRATCH:
+            self.ctx.inputs.parameters['CONTROL']['restart_mode'] = 'from_scratch'
+            self.ctx.inputs.parameters['ELECTRONS'].pop('startingpot', None)
+            self.ctx.inputs.parameters['ELECTRONS'].pop('startingwfc', None)
+            self.ctx.inputs.pop('parent_folder', None)
+
+        elif restart_type == RestartType.FULL:
+            self.ctx.inputs.parameters['CONTROL']['restart_mode'] = 'restart'
+            self.ctx.inputs.parameters['ELECTRONS'].pop('startingpot', None)
+            self.ctx.inputs.parameters['ELECTRONS'].pop('startingwfc', None)
+            self.ctx.inputs.parent_folder = parent_folder
+
+        elif restart_type == RestartType.FROM_CHARGE_DENSITY:
+            self.ctx.inputs.parameters['CONTROL']['restart_mode'] = 'from_scratch'
+            self.ctx.inputs.parameters['ELECTRONS']['startingpot'] = 'file'
+            self.ctx.inputs.parameters['ELECTRONS'].pop('startingwfc', None)
+            self.ctx.inputs.parent_folder = parent_folder
+
+        elif restart_type == RestartType.FROM_WAVE_FUNCTIONS:
+            self.ctx.inputs.parameters['CONTROL']['restart_mode'] = 'from_scratch'
+            self.ctx.inputs.parameters['ELECTRONS'].pop('startingpot', None)
+            self.ctx.inputs.parameters['ELECTRONS']['startingwfc'] = 'file'
+            self.ctx.inputs.parent_folder = parent_folder
 
     def should_run_init(self):
         """Return whether an initialization calculation should be run.
@@ -331,7 +368,9 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
             return self.exit_codes.ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_MISSING_KEY
 
         if remaining_keys:
-            self.report(f"detected unrecognized keys in the automatic_parallelization input: {' '.join(remaining_keys)}")
+            self.report(
+                f"detected unrecognized keys in the automatic_parallelization input: {' '.join(remaining_keys)}"
+            )
             return self.exit_codes.ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_UNRECOGNIZED_KEY
 
         # Add the calculation mode to the automatic parallelization dictionary
@@ -402,18 +441,11 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         return
 
     def prepare_process(self):
-        """Prepare the inputs for the next calculation.
+        """Prepare the inputs for the next calculation."""
+        max_wallclock_seconds = self.ctx.inputs.metadata.options.get('max_wallclock_seconds', None)
 
-        If a `restart_calc` has been set in the context, its `remote_folder` will be used as the `parent_folder` input
-        for the next calculation and the `restart_mode` is set to `restart`. Otherwise, no `parent_folder` is used and
-        `restart_mode` is set to `from_scratch`.
-        """
-        if self.ctx.restart_calc:
-            self.ctx.inputs.parameters['CONTROL']['restart_mode'] = 'restart'
-            self.ctx.inputs.parent_folder = self.ctx.restart_calc.outputs.remote_folder
-        else:
-            self.ctx.inputs.parameters['CONTROL']['restart_mode'] = 'from_scratch'
-            self.ctx.inputs.pop('parent_folder', None)
+        if max_wallclock_seconds is not None and 'max_seconds' not in self.ctx.inputs.parameters['CONTROL']:
+            self.set_max_seconds(max_wallclock_seconds)
 
     def report_error_handled(self, calculation, action):
         """Report an action taken for a calculation that has failed.
@@ -433,7 +465,8 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
 
         Verify that the occupation of the last band is below a certain threshold, unless `occupations` was explicitly
         set to `fixed` in the input parameters. If this is violated, the calculation used too few bands and cannot be
-        trusted. The number of bands is increased and the calculation is restarted, starting from the last.
+        trusted. The number of bands is increased and the calculation is restarted, using the charge density from the
+        previous calculation.
         """
         from aiida_quantumespresso.utils.bands import get_highest_occupied_band
 
@@ -451,19 +484,29 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
 
         try:
             bands = calculation.outputs.output_band
+        except AttributeError:
+            args = [self.ctx.process_name, calculation.pk]
+            self.report('{}<{}> does not have `output_band` output, skipping sanity check.'.format(*args))
+            return
+
+        try:
             get_highest_occupied_band(bands)
         except ValueError as exception:
-            args = [self._process_class.__name__, calculation.pk]
+            args = [self.ctx.process_name, calculation.pk]
             self.report('{}<{}> run with smearing and highest band is occupied'.format(*args))
             self.report(f'BandsData<{bands.pk}> has invalid occupations: {exception}')
             self.report(f'{calculation.process_label}<{calculation.pk}> had insufficient bands')
 
             nbnd_cur = calculation.outputs.output_parameters.get_dict()['number_of_bands']
             nbnd_new = nbnd_cur + max(int(nbnd_cur * self.defaults.delta_factor_nbnd), self.defaults.delta_minimum_nbnd)
+            self.ctx.inputs.parameters['SYSTEM']['nbnd'] = nbnd_new
 
-            self.ctx.inputs.parameters.setdefault('SYSTEM', {})['nbnd'] = nbnd_new
+            self.set_restart_type(RestartType.FROM_CHARGE_DENSITY, calculation.outputs.remote_folder)
+            self.report(
+                f'Action taken: increased number of bands to {nbnd_new} and restarting from the previous charge '
+                'density.'
+            )
 
-            self.report(f'Action taken: increased number of bands to {nbnd_new} and restarting from scratch')
             return ProcessHandlerReport(True)
 
     @process_handler(priority=600)
@@ -473,9 +516,7 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
             self.report_error_handled(calculation, 'unrecoverable error, aborting...')
             return ProcessHandlerReport(True, self.exit_codes.ERROR_UNRECOVERABLE_FAILURE)
 
-    @process_handler(priority=590, exit_codes=[
-        EnvPwCalculation.exit_codes.ERROR_COMPUTING_CHOLESKY,
-    ])
+    @process_handler(priority=590, exit_codes=[])
     def handle_known_unrecoverable_failure(self, calculation):
         """Handle calculations with an exit status that correspond to a known failure mode that are unrecoverable.
 
@@ -484,18 +525,47 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         self.report_error_handled(calculation, 'known unrecoverable failure detected, aborting...')
         return ProcessHandlerReport(True, self.exit_codes.ERROR_KNOWN_UNRECOVERABLE_FAILURE)
 
+    @process_handler(
+        priority=585,
+        exit_codes=[
+            EnvPwCalculation.exit_codes.ERROR_COMPUTING_CHOLESKY,
+            EnvPwCalculation.exit_codes.ERROR_DIAGONALIZATION_TOO_MANY_BANDS_NOT_CONVERGED,
+        ]
+    )
+    def handle_diagonalization_errors(self, calculation):
+        """Handle known issues related to the diagonalization.
+
+        Switch to ``diagonalization = 'cg'`` if not already running with this setting, and restart from the charge
+        density. In case the run already used conjugate gradient diagonalization, abort.
+        """
+        if self.ctx.inputs.parameters['ELECTRONS'].get('diagonalization', None) == 'cg':
+            action = 'found diagonalization issues but already running with conjugate gradient algorithm, aborting...'
+            self.report_error_handled(calculation, action)
+            return ProcessHandlerReport(True, self.exit_codes.ERROR_KNOWN_UNRECOVERABLE_FAILURE)
+
+        self.ctx.inputs.parameters['ELECTRONS']['diagonalization'] = 'cg'
+        action = 'found diagonalization issues, switching to conjugate gradient diagonalization.'
+        self.report_error_handled(calculation, action)
+        return ProcessHandlerReport(True)
+
     @process_handler(priority=580, exit_codes=[
         EnvPwCalculation.exit_codes.ERROR_OUT_OF_WALLTIME,
     ])
     def handle_out_of_walltime(self, calculation):
-        """Handle `ERROR_OUT_OF_WALLTIME` exit code: calculation shut down neatly and we can simply restart."""
+        """Handle `ERROR_OUT_OF_WALLTIME` exit code.
+
+        In this case the calculation shut down neatly and we can simply restart. We consider two cases:
+
+        1. If the structure is unchanged, we do a full restart.
+        2. If the structure has changed during the calculation, we restart from scratch.
+        """
         try:
             self.ctx.inputs.structure = calculation.outputs.output_structure
         except exceptions.NotExistent:
-            self.ctx.restart_calc = calculation
+            self.set_restart_type(RestartType.FULL, calculation.outputs.remote_folder)
             self.report_error_handled(calculation, 'simply restart from the last calculation')
         else:
-            self.ctx.restart_calc = None
+            self.set_restart_type(RestartType.FROM_SCRATCH)
             self.report_error_handled(calculation, 'out of walltime: structure changed so restarting from scratch')
 
         return ProcessHandlerReport(True)
@@ -511,14 +581,14 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         Convergence reached in `vc-relax` except thresholds exceeded in final scf: consider as converged.
         """
         self.ctx.is_finished = True
-        self.ctx.restart_calc = calculation
         action = 'ionic convergence thresholds met except in final scf: consider structure relaxed.'
         self.report_error_handled(calculation, action)
         self.results()  # Call the results method to attach the output nodes
         return ProcessHandlerReport(True, self.exit_codes.ERROR_IONIC_CONVERGENCE_REACHED_EXCEPT_IN_FINAL_SCF)
 
     @process_handler(
-        priority=560, exit_codes=[
+        priority=560,
+        exit_codes=[
             EnvPwCalculation.exit_codes.ERROR_IONIC_CONVERGENCE_NOT_REACHED,
             EnvPwCalculation.exit_codes.ERROR_IONIC_CYCLE_EXCEEDED_NSTEP,
             EnvPwCalculation.exit_codes.ERROR_IONIC_CYCLE_BFGS_HISTORY_FAILURE,
@@ -531,14 +601,16 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         These exit codes signify that the ionic convergence thresholds were not met, but the output structure is usable,
         so the solution is to simply restart from scratch but from the output structure.
         """
-        self.ctx.restart_calc = None
         self.ctx.inputs.structure = calculation.outputs.output_structure
         action = 'no ionic convergence but clean shutdown: restarting from scratch but using output structure.'
+
+        self.set_restart_type(RestartType.FROM_SCRATCH)
         self.report_error_handled(calculation, action)
         return ProcessHandlerReport(True)
 
     @process_handler(
-        priority=550, exit_codes=[
+        priority=550,
+        exit_codes=[
             EnvPwCalculation.exit_codes.ERROR_IONIC_CYCLE_ELECTRONIC_CONVERGENCE_NOT_REACHED,
             EnvPwCalculation.exit_codes.ERROR_IONIC_CONVERGENCE_REACHED_FINAL_SCF_FAILED,
         ]
@@ -547,17 +619,19 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         """Handle various exit codes for recoverable `relax` calculations with failed electronic convergence.
 
         These exit codes signify that the electronic convergence thresholds were not met, but the output structure is
-        usable, so the solution is to simply restart from scratch but from the output structure.
+        usable, so the solution is to simply restart from scratch but from the output structure and with a reduced
+        ``mixing_beta``.
         """
         factor = self.defaults.delta_factor_mixing_beta
         mixing_beta = self.ctx.inputs.parameters.get('ELECTRONS', {}).get('mixing_beta', self.defaults.qe.mixing_beta)
         mixing_beta_new = mixing_beta * factor
 
-        self.ctx.restart_calc = None
-        self.ctx.inputs.parameters.setdefault('ELECTRONS', {})['mixing_beta'] = mixing_beta_new
+        self.ctx.inputs.parameters['ELECTRONS']['mixing_beta'] = mixing_beta_new
         self.ctx.inputs.structure = calculation.outputs.output_structure
-        action = f'no electronic convergence but clean shutdown: reduced beta mixing from {mixing_beta} to {mixing_beta_new} ' \
-                  'restarting from scratch but using output structure.'
+        action = 'no electronic convergence but clean shutdown: reduced beta mixing from {} to {} restarting from ' \
+                 'scratch but using output structure.'.format(mixing_beta, mixing_beta_new)
+
+        self.set_restart_type(RestartType.FROM_SCRATCH)
         self.report_error_handled(calculation, action)
         return ProcessHandlerReport(True)
 
@@ -565,14 +639,28 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         EnvPwCalculation.exit_codes.ERROR_ELECTRONIC_CONVERGENCE_NOT_REACHED,
     ])
     def handle_electronic_convergence_not_achieved(self, calculation):
-        """Handle `ERROR_ELECTRONIC_CONVERGENCE_NOT_REACHED`: decrease the mixing beta and restart from scratch."""
+        """Handle `ERROR_ELECTRONIC_CONVERGENCE_NOT_REACHED` error.
+
+        Decrease the mixing beta and fully restart from the previous calculation.
+        """
         factor = self.defaults.delta_factor_mixing_beta
         mixing_beta = self.ctx.inputs.parameters.get('ELECTRONS', {}).get('mixing_beta', self.defaults.qe.mixing_beta)
         mixing_beta_new = mixing_beta * factor
 
-        self.ctx.restart_calc = None
-        self.ctx.inputs.parameters.setdefault('ELECTRONS', {})['mixing_beta'] = mixing_beta_new
-
+        self.ctx.inputs.parameters['ELECTRONS']['mixing_beta'] = mixing_beta_new
         action = f'reduced beta mixing from {mixing_beta} to {mixing_beta_new} and restarting from the last calculation'
+
+        self.set_restart_type(RestartType.FULL, calculation.outputs.remote_folder)
         self.report_error_handled(calculation, action)
         return ProcessHandlerReport(True)
+
+    @process_handler(priority=420, exit_codes=[
+        EnvPwCalculation.exit_codes.WARNING_ELECTRONIC_CONVERGENCE_NOT_REACHED,
+    ])
+    def handle_electronic_convergence_warning(self, calculation):
+        """Handle `WARNING_ELECTRONIC_CONVERGENCE_NOT_REACHED': consider finished."""
+        self.ctx.is_finished = True
+        action = 'electronic convergence not reached but inputs say this is ok: consider finished.'
+        self.report_error_handled(calculation, action)
+        self.results()  # Call the results method to attach the output nodes
+        return ProcessHandlerReport(True, self.exit_codes.WARNING_ELECTRONIC_CONVERGENCE_NOT_REACHED)

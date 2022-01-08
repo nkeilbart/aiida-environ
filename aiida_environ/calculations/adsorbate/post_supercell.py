@@ -40,49 +40,53 @@ def adsorbate_post_supercell(mono_struct: StructureData, bulk_struct: StructureD
     charge_range = get_charge_range(charge_max, charge_inc)
 
     # we want the size ratio between the monolayer and the bulk material
-    n_mono = get_nstruct(mono_struct)
-    n_bulk = get_nstruct(bulk_struct)
+    size_mono = get_nstruct(mono_struct)
+    size_bulk = get_nstruct(bulk_struct)
 
     # bulk values used for reference
     bulk_node = load_node(c_details["bulk"])
-    g_bulk = bulk_node.outputs.output_parameters["energy"] * n_mono / n_bulk
+    free_energy_bulk = bulk_node.outputs.output_parameters["energy"] * size_mono / size_bulk
     bulk_adsorbate_node = load_node(c_details["adsorbate"])
-    g_adsorbate = bulk_adsorbate_node.outputs.output_parameters["energy"]
+    free_energy_adsorbate = bulk_adsorbate_node.outputs.output_parameters["energy"]
     # TODO: this needs to be generalized for any adsorbate..
-    g_adsorbate /= 2
+    free_energy_adsorbate /= 2
 
     # delta free energy (the difference in energy between monolayer and bulk)
-    dg_ads = np.zeros((len(struct_list) + 1, len(charge_range), ), dtype=float)
+    delta_free_energy_adsorption = np.zeros((len(struct_list) + 1, len(charge_range), ), dtype=float)
     # fermi energy (the QE fermi energy plus the Environ potential shift correction)
-    f_ads = np.zeros((len(struct_list) + 1, len(charge_range), ), dtype=float)
+    fermi_energy_adsorption = np.zeros((len(struct_list) + 1, len(charge_range), ), dtype=float)
 
     for j, charge_amt in enumerate(charge_range):
         # the 0% coverage results
         adsorbate_node = load_node(c_details[charge_amt]["mono"])
         g_ads = adsorbate_node.outputs.output_parameters["energy"]
-        f_ads[0, j] = adsorbate_node.outputs.output_parameters["fermi_energy"]
-        f_ads[0, j] += adsorbate_node.outputs.output_parameters["fermi_energy_correction"]
-        dg_ads[0, j] = g_ads - g_bulk
+        fermi_energy_adsorption[0, j] = adsorbate_node.outputs.output_parameters["fermi_energy"]
+        fermi_energy_adsorption[0, j] += adsorbate_node.outputs.output_parameters["fermi_energy_correction"]
+        delta_free_energy_adsorption[0, j] = g_ads - free_energy_bulk
 
     for i, structure_pk in enumerate(struct_list):
         for j, charge_amt in enumerate(charge_range):
             # n% coverage results (>0, <=100)
             adsorbate_node = load_node(c_details[charge_amt][structure_pk])
             g_ads = adsorbate_node.outputs.output_parameters["energy"]
-            f_ads[i+1, j] = adsorbate_node.outputs.output_parameters["fermi_energy"]
-            f_ads[i+1, j] += adsorbate_node.outputs.output_parameters["fermi_energy_correction"]
-            dg_ads[i+1, j] = g_ads - g_bulk
-            # ne_ads = adsorbate_node.inputs.parameters["SYSTEM"]["tot_charge"]
-            # # TODO: consider another charge of the adsorbate that isn't just '1'
-            # ne_ads = 1 * na
-            # # units in eV so..
-            # j_ip[i, j] = dg_ads - (g_bulk_adsorbate * na) + ne_ads * f_ads 
+            fermi_energy_adsorption[i+1, j] = adsorbate_node.outputs.output_parameters["fermi_energy"]
+            fermi_energy_adsorption[i+1, j] += adsorbate_node.outputs.output_parameters["fermi_energy_correction"]
+            delta_free_energy_adsorption[i+1, j] = g_ads - free_energy_bulk
+            ne_ads = adsorbate_node.inputs.parameters["SYSTEM"]["tot_charge"]
+
+
+    for i in range(len(struct_list) + 1):
+        for j in range(len(charge_range)):
+            # TODO: consider another charge of the adsorbate that isn't just '1'
+            ne_ads = 1 * na
+            # units in eV so..
+            j_ip[i, j] = delta_free_energy_adsorption[i, j] - (g_bulk_adsorbate * na) + ne_ads * fermi_energy_adsorption 
 
     # now that we have all the input data, perform analysis
 
     # fermi range needs to be calculated
-    fermi_min = np.amin(f_ads, axis=1)
-    fermi_max = np.amax(f_ads, axis=1)
+    fermi_min = np.amin(fermi_energy_adsorption, axis=1)
+    fermi_max = np.amax(fermi_energy_adsorption, axis=1)
     sparse_inc = 0.2
     fine_inc = 0.01
 
@@ -98,7 +102,7 @@ def adsorbate_post_supercell(mono_struct: StructureData, bulk_struct: StructureD
         for j, fermi in fermi_range:
             j_value = []
             for k, charge_amt in enumerate(charge_range):
-                j_value.append(dg_ads[i, k] - charge_amt * fermi)
+                j_value.append(delta_free_energy_adsorption[i, k] - charge_amt * fermi)
             j_min.append(min(j_value))
             f_min.append(fermi_range[np.where(fermi)[0][0]])
 
@@ -118,7 +122,7 @@ def adsorbate_post_supercell(mono_struct: StructureData, bulk_struct: StructureD
             # fractional coverage
             fcov = na / max(num_adsorbate)
             ecorr = 8 * (fcov * np.log(fcov) + (1 - fcov) * np.log(1 - fcov)) * boltzmann
-            surf_e = (0.5 / na) * (j_ensemble - (na * 2 * g_adsorbate) + (2 * na * (ph - 4.44)) + ecorr)
+            surf_e = (0.5 / na) * (j_ensemble - (na * 2 * free_energy_adsorbate) + (2 * na * (ph - 4.44)) + ecorr)
         else:
             surf_e = None
         e_ensemble.append(surf_e)

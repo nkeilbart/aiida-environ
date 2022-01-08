@@ -9,8 +9,43 @@ List = DataFactory('list')
 
 
 @calcfunction
-def adsorbate_gen_multitype(site_index, possible_adsorbates, adsorbate_index, structure, vacancies):
+def adsorbate_gen_multitype(site_index, possible_adsorbates, adsorbate_index, structure, adsorbate_sites):
+    """Generate structures of maximally connected adsorbate configurations
+
+    Args:
+        site_index (aiida.orm.List): array of indices that describe what type of sites exist
+        possible_adsorbates (aiida.orm.List): array of adsorbates given by strings (assumes single atomic species)
+        TODO: adsorbates should be arbitrarily defined structures
+        adsorbate_index (aiida.orm.List): array of values that determine how many of each adsorbate can exist on each
+            site type
+        structure (aiida.orm.StructureData): the structure to append adsorbates onto
+        adsorbate_sites (aiida.orm.List): list of coordinates to position adsorbates
+
+    Returns:
+        aiida.orm.List: a list of PK values that refer to structures that have been stored in the aiida database
+            due to this function. The structures are modified versions of the input structure with possible added
+            adsorbates.x
+    """
     # Setup based on inputs
+    max_list = _gen_multitype(site_index, possible_adsorbates, adsorbate_index)
+
+    struct_list = []
+    for i, ads_configuration in enumerate(max_list):
+        new_structure = StructureData(cell=structure.cell)
+        for site in structure.sites:
+            new_structure.append_atom(position=site.position, symbols=site.kind_name)
+        for site_configuration, pos in zip(ads_configuration, adsorbate_sites):
+            for sp in site_configuration:
+                if sp != 0:
+                    new_structure.append_atom(position=pos, symbols=sp)
+        new_structure.store()
+        struct_list.append(new_structure.pk)
+
+    struct_list = List(list=struct_list)
+                    
+    return struct_list
+
+def _gen_multitype(site_index: list, possible_adsorbates: list, adsorbate_index: list):
     points_per_site = [0] * (max(site_index) + 1)
     adsorbate_per_site = [0] * (max(site_index) + 1)
     for i in site_index:
@@ -56,18 +91,4 @@ def adsorbate_gen_multitype(site_index, possible_adsorbates, adsorbate_index, st
     max_list = g.get_vertices_with_connections(n_max)
     max_list = vertices_to_labels(max_list) 
 
-    struct_list = []
-    for i, ads_configuration in enumerate(max_list):
-        new_structure = StructureData(cell=structure.cell)
-        for site in structure.sites:
-            new_structure.append_atom(position=site.position, symbols=site.kind_name)
-        for site_configuration, pos in zip(ads_configuration, vacancies):
-            for sp in site_configuration:
-                if sp != 0:
-                    new_structure.append_atom(position=pos, symbols=sp)
-        new_structure.store()
-        struct_list.append(new_structure.pk)
-
-    struct_list = List(list=struct_list)
-                    
-    return struct_list
+    return max_list

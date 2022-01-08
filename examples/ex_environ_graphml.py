@@ -3,39 +3,36 @@ from aiida.engine import submit
 from aiida.orm import List, Dict, StructureData
 from aiida.orm.nodes.data.upf import get_pseudos_from_structure
 from aiida.plugins.factories import WorkflowFactory
-import node_assignment
+
+from aiida_quantumespresso.utils.resources import get_default_options
+
+from make_inputs import *
 
 # Once this runs right, just comment out dicts and load_node
 # try loading aiida-environ, everything stored as nodes already
-code = load_code(node_assignment.get("ENVIRON_CODE_PK"))
+code = load_code()
 workchain = WorkflowFactory('environ.pw.graphml')
 builder = workchain.get_builder()
-builder.metadata.label = "Environ test"
-builder.metadata.description = "Test of environ adsorbate workchain"
-builder.base.pw.metadata.options.resources = {'num_machines': 1}
-builder.base.pw.metadata.options.max_wallclock_seconds = 30 * 60
-builder.base.pw.code = code
+builder.metadata.label = "environ example"
+builder.metadata.description = "environ.pw graph ml"
+builder.metadata.options = get_default_options()
 
 # read in structure from ase
 import ase.io
-import numpy as np
+
 a = ase.io.read("adsorbate.cif")
 nat = a.get_global_number_of_atoms()
 # remove the adsorbate, the cif file contains two sites that we want to take
 siteA = a.pop(nat-1)
 siteB = a.pop(nat-2)
 structure = StructureData(ase=a)
-# for idx, val in enumerate(structure.kinds):
-#     print(idx, val)
-# print(structure._internal_kind_tags)
-# quit()
-pp = get_pseudos_from_structure(structure, 'SSSPe')
-vacancies = []
-vacancies.append(tuple(siteA.position))
-vacancies.append(tuple(siteB.position))
+
+adsorbate_sites = []
+adsorbate_sites.append(tuple(siteA.position))
+adsorbate_sites.append(tuple(siteB.position))
 # set the builder
 builder.structure = structure
-builder.vacancies = List(list=vacancies)
+builder.adsorbate_sites = List(list=adsorbate_sites)
 
 environ_parameters = {
     "ENVIRON": {
@@ -53,9 +50,10 @@ environ_parameters = {
     }                           
 }
 
-builder.base.kpoints = load_node(node_assignment.get("SIMPLE_KPOINTS_PK"))
-builder.base.pw.parameters = load_node(node_assignment.get("SIMPLE_PARAMETRES"))
-builder.base.pw.pseudos = pp
+builder.base.kpoints = make_simple_kpoints()
+builder.base.pw.code = code
+builder.base.pw.parameters = make_simple_parameters()
+builder.base.pw.pseudos = get_pseudos_from_structure(structure, 'SSSPe')
 builder.base.pw.environ_parameters = Dict(dict=environ_parameters)
 
 builder.site_index = List(list=[0, 1])

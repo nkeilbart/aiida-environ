@@ -89,8 +89,8 @@ class AdsorbateGrandCanonical(WorkChain):
             # loop over charges
             charges = EnvironChargeData()
             # get position of charge
-            charges.append_charge(charge_amt/2, tuple(npcpos1), charge_spread, 2, axis)
-            charges.append_charge(charge_amt/2, tuple(npcpos2), charge_spread, 2, axis)
+            charges.append_charge(-charge_amt/2, tuple(npcpos1), charge_spread, 2, axis)
+            charges.append_charge(-charge_amt/2, tuple(npcpos2), charge_spread, 2, axis)
 
             for j, structure_pk in enumerate(self.ctx.struct_list):
                 # regular monolayer simulation with adsorbate/charge
@@ -108,6 +108,7 @@ class AdsorbateGrandCanonical(WorkChain):
                 running = self.submit(EnvPwBaseWorkChain, **inputs)
                 self.report(f'<s{j}_c{i}> launching EnvPwBaseWorkChain<{running.pk}>')
                 self.ctx.calculation_details[charge_amt][structure_pk] = running.pk
+                self.to_context(workchains=append_(running))
 
             # base monolayer simulation
             inputs = AttributeDict(self.exposed_inputs(EnvPwBaseWorkChain, namespace='base'))
@@ -121,6 +122,7 @@ class AdsorbateGrandCanonical(WorkChain):
             running = self.submit(EnvPwBaseWorkChain, **inputs)
             self.report(f'<smono_c{i}> launching EnvPwBaseWorkChain<{running.pk}>')
             self.ctx.calculation_details[charge_amt]["mono"] = running.pk
+            self.to_context(workchains=append_(running))
 
         # bulk simulation
         inputs = AttributeDict(self.exposed_inputs(EnvPwBaseWorkChain, namespace='base'))
@@ -136,6 +138,7 @@ class AdsorbateGrandCanonical(WorkChain):
         running = self.submit(PwBaseWorkChain, **inputs)
         self.report(f'<sbulk> launching PwBaseWorkChain<{running.pk}>')
         self.ctx.calculation_details["bulk"] = running.pk
+        self.to_context(workchains=append_(running))
 
         # hydrogen simulation
         inputs = AttributeDict(self.exposed_inputs(EnvPwBaseWorkChain, namespace='base'))
@@ -151,10 +154,9 @@ class AdsorbateGrandCanonical(WorkChain):
         running = self.submit(PwBaseWorkChain, **inputs)
         self.report(f'<sads_neutral> launching PwBaseWorkChain<{running.pk}>')
         self.ctx.calculation_details["adsorbate"] = running.pk
+        self.to_context(workchains=append_(running))
 
         self.report(f'calc_details written: {self.ctx.calculation_details}')
-
-        return ToContext(workchains=append_(running))
     
     def postprocessing(self):
         adsorbate_post_supercell(self.inputs.mono_struct, self.inputs.bulk_struct, 

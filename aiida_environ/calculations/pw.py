@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# -*- coding: utf-8 -*-
 from aiida import orm
 from aiida.common.folders import Folder
 from aiida.common.datastructures import CalcInfo

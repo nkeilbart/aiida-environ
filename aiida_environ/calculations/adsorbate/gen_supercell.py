@@ -16,8 +16,8 @@ def gen_structures_n(size: Tuple[int, int], n: int) -> List:
     is not present
 
     Args:
-        size (Tuple[int, int]): 
-        n (int):
+        size (Tuple[int, int]): the size of the adsorbate grid
+        n (int): the number of adsorbates to fill
 
     Returns:
         List[np.array]: list of combinations

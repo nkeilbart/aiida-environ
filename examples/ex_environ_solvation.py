@@ -1,20 +1,21 @@
-from aiida.orm.utils import load_node, load_code
+from aiida.orm.utils import load_code
 from aiida.engine import submit
 from aiida.orm import Dict
 from aiida.orm.nodes.data.upf import get_pseudos_from_structure
 from aiida.plugins.factories import WorkflowFactory
-import node_assignment
+
+from aiida_quantumespresso.utils.resources import get_default_options
+
+from make_inputs import *
 
 # Once this runs right, just comment out dicts and load_node
 # try loading aiida-environ, everything stored as nodes already
-code = load_code(109)
+code = load_code(5714)
 workchain = WorkflowFactory('environ.pw.solvation')
 builder = workchain.get_builder()
-builder.metadata.label = "Environ test"
-builder.metadata.description = "Test of environ plugin"
-builder.pw.metadata.options.resources = {'num_machines': 1}
-builder.pw.metadata.options.max_wallclock_seconds = 30 * 60
-builder.pw.code = code
+builder.metadata.label = "environ example"
+builder.metadata.description = "environ.pw solvation workflow"
+builder.base.pw.metadata.options = get_default_options()
 
 environ_parameters = {
     "ENVIRON": {
@@ -47,11 +48,12 @@ environ_solution = {
     }
 }              
 
-builder.pw.structure = load_node(node_assignment.get("SIMPLE_STRUCTURE_PK"))
-builder.pw.kpoints = load_node(node_assignment.get("SIMPLE_KPOINTS_PK"))
-builder.pw.parameters = load_node(node_assignment.get("SIMPLE_PARAMETERS_PK"))
-builder.pw.pseudos = get_pseudos_from_structure(builder.pw.structure, 'SSSPe')
-builder.pw.environ_parameters = Dict(dict=environ_parameters)
+builder.base.pw.code = code
+builder.base.pw.structure = make_organic_structure()
+builder.base.kpoints = make_simple_kpoints()
+builder.base.pw.parameters = make_simple_parameters()
+builder.base.pw.pseudos = get_pseudos_from_structure(builder.base.pw.structure, 'SSSPe')
+builder.base.pw.environ_parameters = Dict(dict=environ_parameters)
 builder.environ_vacuum = Dict(dict=environ_vacuum)
 builder.environ_solution = Dict(dict=environ_solution)
 

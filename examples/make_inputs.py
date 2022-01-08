@@ -49,3 +49,21 @@ def make_simple_parameters():
     parameters = Dict(dict=parameters)
 
     return parameters
+
+def make_simple_environ_parameters():
+    from aiida.orm import Dict
+    
+    environ_parameters = {
+        "ENVIRON": {
+            "environ_thr": 0.1,
+            "environ_type": 'water',
+        },
+        "BOUNDARY": {
+        },
+        "ELECTROSTATIC": {
+            "tol": 1e-10,
+        }
+    }
+    environ_parameters = Dict(dict=environ_parameters)
+
+    return environ_parameters
