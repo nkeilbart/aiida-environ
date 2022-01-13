@@ -9,7 +9,8 @@
     "description": "Environ plugin",
     "entry_points": {
         "aiida.calculations": [
-            "environ.pw = aiida_environ.calculations.pw:EnvPwCalculation"
+            "environ.pw = aiida_environ.calculations.pw:EnvPwCalculation",
+            "environ.compareF = aiida_environ.calculations.compareF:compare_forces"
         ],
         "aiida.data": [
             "environ.charges = aiida_environ.data.charge:EnvironChargeData"
@@ -24,7 +25,7 @@
             "environ.pw.parameterization = aiida_environ.workflows.pw.parameterization:ParameterizationWorkChain",
             "environ.pw.graphml = aiida_environ.workflows.pw.adsorbate:AdsorbateGraphConfiguration",
             "environ.pw.grandcanonical = aiida_environ.workflows.pw.grandcanonical:AdsorbateGrandCanonical",
-            "environ.pw.force = aiida_environ.workflows.pw.force:EnvPwForceTest"
+            "environ.pw.testF = aiida_environ.workflows.pw.testF:ForceTestWorkChain"
         ]
     },
     "extras_require": {

@@ -1,11 +1,12 @@
-from aiida.engine import WorkChain, append_
-from aiida.plugins import WorkflowFactory
-from aiida.orm import StructureData, Dict, load_node
+from aiida.engine import WorkChain
+from aiida.plugins import WorkflowFactory, CalculationFactory
+from aiida.orm import StructureData, Dict, List, Int, load_node
+
 #import random # TODO add randomizing option
 
 EnvPwBaseWorkChain = WorkflowFactory('environ.pw.base')
 
-class EnvPwForceTest(WorkChain):
+class ForceTestWorkChain(WorkChain):
 
     @classmethod
     def define(cls, spec):
@@ -22,7 +23,7 @@ class EnvPwForceTest(WorkChain):
             cls.display_results,
         )
 
-    def setup(self): # initial calculation
+    def setup(self):
 
         '''Setup default structure & parameters for testing. -- in progress'''
 
@@ -33,6 +34,8 @@ class EnvPwForceTest(WorkChain):
         structure.append_atom(position=(1.3575, 1.3575, 1.3575), symbols='Si', name='Si')
         self.pw.structure = structure
 
+        # FIXME require user to enter pseudo? -- look for pseudo group; use get_pseudos(structure=structure)
+        
         self.ctx.environ_parameters = self.inputs.base.pw.environ_parameters
         chain_parameters = self.inputs.test_parameters.get_dict()
         chain_parameters.setdefault('multi', False)               # default move one atom at a time
@@ -41,12 +44,10 @@ class EnvPwForceTest(WorkChain):
         chain_parameters.setdefault('axis', 0)                    # default x-direction #TODO change to tuple for multiple-atom translation; random option
         chain_parameters.setdefault('step', 0.1)                  # default dx = 0.1
         self.inputs.test_parameters = Dict(dict=chain_parameters)
-        
-        return
 
-    def run_test(self): # displacement & interpolation
+    def run_test(self):
 
-        '''Displace an atom from initial position to compare forces. -- in progress'''
+        '''Displace an atom from initial position to compare forces. -- needs testing'''
 
         # test parameter variable block for logic legibility
         n = self.inputs.test_parameters.nsteps              # total number of steps
@@ -66,13 +67,13 @@ class EnvPwForceTest(WorkChain):
 
         for i in range(n):
 
-            if i == 0:
+            if i == 0: # initial calculation
 
                 # calculation identifiers
-                self.pw.metadata.label = 'Initial structure | {}'.format(displacement) # brief description
+                self.pw.metadata.description = 'Initial structure | {}'.format(displacement) # brief description
                 name = f'{prefix}.{axnames[axis]}.0' # calculation node key in context dictionary
 
-            else:
+            else: # displaced atom calculations
 
                 # get initial calculation data
                 if i == 1: # only structure will change between calculations
@@ -91,10 +92,16 @@ class EnvPwForceTest(WorkChain):
                     edge = self.initcalc.inputs.structure.cell_lengths[atom] # max cell length
 
                 # perturb atom
-                displacement[atom] = i * step                           # update displacement tuple
-                position = sites[atom].position                         # initial atom position
-                newposition = (position[0] + i * step,) + position[1:]  # new position
-                sites[atom].position = newposition                      # update position tuple
+                displacement[atom] = i * step # update displacement tuple
+                position = sites[atom].position # initial atom position
+                newposition = (0., 0., 0.)
+                for j in range(len(position)): # build new position tuple
+                    if j == axis:
+                        newposition[axis] = position[axis] + i * step
+                    else:
+                        newposition[j] = position[j]
+                
+                sites[atom].position = newposition # update local position tuple
 
                 # build new calculation
                 if (edge - position[0]) > 0.001: # check if atom is still in cell before calculation
@@ -106,7 +113,7 @@ class EnvPwForceTest(WorkChain):
                     builder.pw.kpoints = kpoints
                     builder.parameters = parameters
                     builder.settings = settings
-                    builder.metadata.label = 'Perturbed structure | {}'.format(displacement)
+                    builder.metadata.description = 'Perturbed structure | {}'.format(displacement)
                     
                     name = f'{prefix}.{axnames[axis]}.{i * step}'
 
@@ -125,14 +132,43 @@ class EnvPwForceTest(WorkChain):
             calc = self.submit(EnvPwBaseWorkChain, **self.ctx.environ_parameters)
             self.to_context(**{name: calc})
 
-            # return_
+        # collect calculation pks using key convention for next step
+        self.ctx.calclist = [self.ctx[f'{prefix}.{axnames[axis]}.{k}'].pk for k in range(n)]
 
     def display_results(self): # quantitative (chart) & qualitative (plot)
-        '''Compare finite difference forces against DFT forces -- not started'''
 
-        
+        '''Compare finite difference forces against DFT forces -- needs testing'''
+
+        calcs = self.ctx.calclist                           # list of calc pks
+        atom = self.inputs.test_parameters.perturbed        # index of atom perturbed
+        axis = self.inputs.test_parameters.axis             # index of axis to perturb
+
+        CompareCalculation = CalculationFactory('environ.compareF')
+        results = CompareCalculation(List(list=calcs), Int(atom), Int(axis))
+
+        # calculation parameters
+        print()
+        print(f'atom number = {atom+1}')
+        print(f'axis        = {axis}     ( 0-x | 1-y | 2-z )')
+        print(f'dh          = {self.inputs.test_parameters.step}')
+        #print(f'environ     = {use_environ}')
+        #print(f'doublecell  = {double_cell}')
+
+        print(results)
+
+        # header
+        #print('\ncoord    energy       force      fd     err')
+
+        # display results
+        #for i in range(len(results)):
+        #
+        #    coord = init_coord + dh * i
+        #    print('{:5.2f} {:12.8f}{:12.8f}'.format(coord, *results[i]), end=' ')
+        #
+        #    if 0 < i < len(results) - 1:
+        #        f, fd = compute_fd(results, i)
+        #        print(f'{fd:6.3f} {abs(fd - f):2.2e}', end=' ')
+        #
+        #    print()
 
         return
-
-
-# need to add entry points to setup.json
