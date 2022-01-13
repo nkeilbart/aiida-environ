@@ -104,14 +104,7 @@ class PwSolvationWorkChain(WorkChain):
         self.ctx.vacuum_inputs.pw.environ_parameters['ENVIRON'].setdefault('env_electrostatic', True)
 
         self.ctx.vacuum_inputs.pw.environ_parameters.setdefault('ELECTROSTATIC', {})
-
-        # self.report(f'vacuum: {self.ctx.vacuum_inputs.pw.environ_parameters}')
-        # self.report(f'solution: {self.ctx.solution_inputs.pw.environ_parameters}')
-        # self.ctx.vacuum_inputs.pw.environ_parameters['foo'] = 'bar'
         self.ctx.vacuum_inputs.pw.environ_parameters['ELECTROSTATIC'].setdefault('solver', 'direct')
-        # self.report(f'vacuum: {self.ctx.vacuum_inputs.pw.environ_parameters}')
-        # self.report(f'solution: {self.ctx.solution_inputs.pw.environ_parameters}')
-
         self.ctx.vacuum_inputs.pw.environ_parameters['ELECTROSTATIC'].setdefault('auxiliary', 'none')
 
         self.ctx.solution_inputs.pw.environ_parameters.setdefault('ENVIRON', {})
@@ -146,9 +139,9 @@ class PwSolvationWorkChain(WorkChain):
         if 'energy_vacuum' in self.inputs:
             e_vacuum = self.inputs.energy_vacuum
         else:
-            e_vacuum = self.ctx.vacuum_wc.outputs.output_parameters.get_dict()['energy']
+            e_vacuum = self.ctx.vacuum_wc.outputs.output_parameters['energy']
 
-        e_solvent = self.ctx.solution_wc.outputs.output_parameters.get_dict()['energy']
+        e_solvent = self.ctx.solution_wc.outputs.output_parameters['energy']
         self.ctx.energy_difference = subtract_energy(Float(e_solvent), Float(e_vacuum))
     
     def produce_result(self):
