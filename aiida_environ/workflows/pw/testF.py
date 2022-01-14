@@ -1,12 +1,17 @@
-from aiida.engine import WorkChain
+from aiida.engine import BaseRestartWorkChain, WorkChain
 from aiida.plugins import WorkflowFactory, CalculationFactory
 from aiida.orm import StructureData, Dict, List, Int, load_node
+
+from aiida_quantumespresso.utils.mapping import prepare_process_inputs
+from aiida_quantumespresso.workflows.protocols.utils import ProtocolMixin, recursive_merge
 
 #import random # TODO add randomizing option
 
 EnvPwBaseWorkChain = WorkflowFactory('environ.pw.base')
 
-class ForceTestWorkChain(WorkChain):
+class ForceTestWorkChain(EnvPwBaseWorkChain):
+
+    # TODO default block here?
 
     @classmethod
     def define(cls, spec):
@@ -26,6 +31,8 @@ class ForceTestWorkChain(WorkChain):
     def setup(self):
 
         '''Setup default structure & parameters for testing. -- in progress'''
+
+        # FIXME need to check inputs
 
         # 2 Si atoms - aiida-quantumespresso/tests/calculations/test_pw/test_default_pw.in
         cell = [[2.715, 0, 2.715], [0, 2.715, 2.715], [2.715, 2.715, 0]]
