@@ -117,6 +117,7 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
         atoms = self.inputs.test_parameters.move_list           # tuple of ith atoms to move
         axis = self.inputs.test_parameters.axis                 # index of axis to perturb
         step = self.inputs.test_parameters.step                 # step size
+        dtype = self.inputs.test_parameters.diff_type           # difference type
         multi = self.inputs.test_parameters.multi               # multi-atom perturb flag
 
         if multi:
@@ -129,6 +130,11 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
         #   # : calclist
         # }
         self.ctx.calculations = {}
+
+        # FIXME NEED TO DO HALF-STEP CALCULATIONS FOR CENTRAL DIFFERENCE TYPE -- 0.0, 0.5, 1.0, 1.5, 2.0 WHERE F(x=1) ~ (F(1.5)-F(0.5))/dh where dh = 1.0
+        #if dtype == 'central':
+        #   perform calculation at x = x + dx
+        #   perform calculation at x = x + dx/2
 
         # perform test for each atom in move_list
         for atom in atoms:

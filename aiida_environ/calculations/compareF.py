@@ -2,18 +2,19 @@ from aiida.orm.utils import load_node
 from aiida.engine import calcfunction
 
 @calcfunction
-def compare_forces(pks, interpolation, order, dh):
+def compare_forces(pks, difference, order, dh):
 
     '''Compare DFT total force to numerical derivative dE/dx.
     
     Args:
         pks: aiida.orm.List
-        interpolation: aiida.orm.Str
+        difference: aiida.orm.Str
         order: aiida.orm.Str
         dh: aiida.orm.Float
 
     Returns:
         difference: list
+
     '''
 
     dft_Fs = [load_node(calc).res.total_force for calc in pks]
@@ -34,32 +35,32 @@ def compare_forces(pks, interpolation, order, dh):
 
         if order == 'first':
 
-            if interpolation == 'central':
+            if difference == 'central':
                 if i > 0 and i < n-1:
                     dE = (next_E - prev_E) / dh
                     fin_Fs.append(dE)
-                    differences.append(dft_Fs[i] - dE)
-            elif interpolation == 'forward':
+                    differences.append(abs(dft_Fs[i] - dE))
+            elif difference == 'forward':
                 if i < n-1:
                     dE = (next_E - ith_E) / dh
                     fin_Fs.append(dE)
-                    differences.append(dft_Fs[i] - dE)
-            elif interpolation == 'backward':
+                    differences.append(abs(dft_Fs[i+1] - dE))
+            elif difference == 'backward':
                 if i > 0:
                     dE = (ith_E - prev_E) / dh
                     fin_Fs.append(dE)
-                    differences.append(dft_Fs[i] - dE)
+                    differences.append(abs(dft_Fs[i] - dE))
 
         elif order == 'second': 
 
-            if interpolation == 'central':
+            if difference == 'central':
                 if i > 0 and i < n-1:
                     dE = (next_E + 2*ith_E - prev_E) / (2*dh)**2 # FIXME 2*dh needed for central implementation; dh requires half-steps -- ~2x calculations needed to compare??
                     fin_Fs.append(dE)
                     Fdiff = (dft_Fs[i+1] - dft_Fs[i-1]) - dE
                     differences.append(abs(Fdiff))
 
-            elif interpolation == 'forward':
+            elif difference == 'forward':
                 if i < n-2:
                     next2_calc = load_node(pks[i+2])
                     next2_E = next2_calc.res.energy
@@ -68,7 +69,7 @@ def compare_forces(pks, interpolation, order, dh):
                     Fdiff = (dft_Fs[i+1] - dft_Fs[i]) - dE
                     differences.append(abs(Fdiff))
 
-            elif interpolation == 'backward':
+            elif difference == 'backward':
                 if i > 1:
                     prev2_calc = load_node(pks[i-2])
                     prev2_E = prev2_calc.res.energy
