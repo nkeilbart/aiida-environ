@@ -36,7 +36,8 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
         self.ctx.environ_parameters = self.inputs.base.pw.environ_parameters
 
         # local variables for setup
-        difftypes = ('forward', 'backward', 'central')           # interpolate type tuple
+        difftypes = ('forward', 'backward', 'central')           # finite difference type tuple
+        difforders = ('first', 'second')                         # finite difference order tuple
         axes = ('x', 'y', 'z')                                   # axis tuple
         nat = self.inputs.base.pw.parameters['CONTROL']['nat']   # set nat for random
         wild = random.randint(1, nat)                            # assign random index
@@ -61,7 +62,8 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
         # get user-input test parameters and set defaults
         chain_parameters = self.inputs.test_parameters.get_dict()
         chain_parameters.setdefault('multi', False)               # default move one atom at a time
-        chain_parameters.setdefault('diff_type', 'central')       # default central difference interpolation
+        chain_parameters.setdefault('diff_type', 'central')       # default central difference
+        chain_parameters.setdefault('diff_order', 'first')        # default first-order difference
         chain_parameters.setdefault('nsteps', 5)                  # default n = 5
         chain_parameters.setdefault('axis', wild)                 # default random direction (int)
         chain_parameters.setdefault('step', 0.1)                  # default dx = 0.1
@@ -79,13 +81,21 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
             self.inputs.test_parameters.axis = wild
         self.ctx.axstr = axstr # useful for calc descriptions
         
-        # validate user-input interpolation type
+        # validate user-input finite difference type
         typestr = self.inputs.test_parameters.diff_type
         if typestr in difftypes:
             self.inputs.test_parameters.diff_type = typestr
         else: # set default for garbage input
             print(f'{typestr} is not valid. Setting to central difference interpolation')
             self.inputs.test_parameters.diff_type = 'central'
+
+        # validate user-input finite difference order
+        ordstr = self.inputs.test_parameters.diff_order
+        if ordstr in difforders:
+            self.inputs.test_parameters.diff_order = ordstr
+        else: # set default for garbage input
+            print(f'{ordstr} is not valid. Setting to central finite difference')
+            self.inputs.test_parameters.diff_order = 'first'
 
         # validate user-input tuple of atoms moved
         index_list = self.inputs.test_parameters.move_list
@@ -203,15 +213,15 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
 
         diff_type = self.inputs.test_parameters.diff_type       # interpolation type string
         atoms = self.inputs.test_parameters.move_list           # index of atom perturbed
-        axis = self.inputs.test_parameters.axis                 # index of axis to perturb
         step = self.inputs.test_parameters.step                 # step size float
 
         CompareCalculation = CalculationFactory('environ.compareF')
+
         results = {}
         for atom in atoms:
 
             calclist = self.ctx.calculations[atom]
-            results[atom] = CompareCalculation(Str(diff_type), List(list=calclist), Int(atom), Int(axis))
+            results[atom] = CompareCalculation(List(list=calclist), Str(diff_type), )
 
             # calculation parameters
             print()
