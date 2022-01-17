@@ -21,7 +21,10 @@ def compare_forces(pks, type, order, dh):
     fin_Fs = []
     differences = []
 
-    n = len(pks) # number of calcs
+    if type == 'central':
+        n = 2 * len(pks) # half & whole step calcs
+    else:
+        n = len(pks)
 
     for i in range(n):
 
@@ -39,15 +42,17 @@ def compare_forces(pks, type, order, dh):
         if order == 'first':
 
             if type == 'central':
-                if i > 0 and i < n-1:
+                if i > 0 and i%2 == 0:
                     dE = (next_E - prev_E) / dh
                     fin_Fs.append(dE)
                     differences.append(abs(dft_Fs[i] - dE))
+
             elif type == 'forward':
                 if i < n-1:
                     dE = (next_E - ith_E) / dh
                     fin_Fs.append(dE)
                     differences.append(abs(dft_Fs[i+1] - dE))
+
             elif type == 'backward':
                 if i > 0:
                     dE = (ith_E - prev_E) / dh
@@ -57,8 +62,8 @@ def compare_forces(pks, type, order, dh):
         elif order == 'second': 
 
             if type == 'central':
-                if i > 0 and i < n-1:
-                    dE = (next_E + 2*ith_E - prev_E) / (2*dh)**2 # FIXME 2*dh needed for central implementation; dh requires half-steps -- ~2x calculations needed to compare??
+                if i > 0 and i%2 == 0:
+                    dE = (next_E + 2*ith_E - prev_E) / dh**2
                     fin_Fs.append(dE)
                     Fdiff = (dft_Fs[i+1] - dft_Fs[i-1]) - dE
                     differences.append(abs(Fdiff))

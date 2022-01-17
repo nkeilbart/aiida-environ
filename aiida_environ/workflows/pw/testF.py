@@ -17,45 +17,22 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
     def define(cls, spec):
         super().define(spec)
         spec.expose_inputs(
-            EnvPwBaseWorkChain, namespace='base',
+            EnvPwBaseWorkChain,
+            namespace='base',
             namespace_options={'help': 'Inputs for the `EnvPwBaseWorkChain`.'},
             exclude=('pw.structure')
         )
         spec.input('test_parameters', valid_type=Dict)
         spec.outline(
             cls.setup,
+            cls.validate_settings,
             cls.run_test,
             cls.display_results,
         )
 
-    @staticmethod
-    def validate_structure(self):
+    def validate_settings(self):
 
-        # 2 Si atoms - aiida-quantumespresso/tests/calculations/test_pw/test_default_pw.in
-        # FIXME not sure how to validate structure before base.pw excepts - don't want to load every time
-        
-        if self.inputs.base.pw['structure'] is None:
-            cell = [[2.715, 0, 2.715], [0, 2.715, 2.715], [2.715, 2.715, 0]]
-            structure = StructureData(cell=cell)
-            structure.append_atom(position=(0., 0., 0.), symbols='Si', name='Si')
-            structure.append_atom(position=(1.3575, 1.3575, 1.3575), symbols='Si', name='Si')
-            self.pw.structure = structure
-
-        # validate pseudo string
-
-        upfstr = self.inputs.test_parameters.pseudo
-        
-        try:
-            upf = load_group(upfstr)
-            self.inputs.base['pseudos'] = upf.get_pseudos(structure=self.inputs.base.pw['structure'])
-        
-        except:
-            raise NameError(f'{upfstr} is not an imported pseudo family. Make sure to use aiida-pseudo plugin')
-
-    @staticmethod
-    def validate_test_inputs(self):
-
-        # local tuples for validation # TODO MOVE TO VALIDATE_INPUTS()
+        # local tuples for validation
         difftypes = ('forward', 'backward', 'central')           # finite difference type tuple
         difforders = ('first', 'second')                         # finite difference order tuple
         axes = ('x', 'y', 'z')                                   # axis tuple
@@ -67,7 +44,7 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
 
         # *** VALIDATE MULTI ***
 
-        if multi: # change atom position in more than one variable -- r + dr
+        if multi: # change atom position in more than one variable (r + dr)
             
             axinput: list[str]
             stepinput: list[float]
@@ -120,53 +97,75 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
             print(f'{ordstr} is not valid. Setting to central finite difference')
             self.inputs.test_parameters.diff_order = 'first'
 
-    @classmethod
     def setup(self):
 
         '''Setup default structure & parameters for testing. -- in progress'''
         
-        validate_structure()
+        # validate structure
+        # 2 Si atoms - aiida-quantumespresso/tests/calculations/test_pw/test_default_pw.in
+        # FIXME not sure how to validate structure before base workchain excepts - don't want to load every time
+        
+        if self.inputs.base['structure'] is None:
+
+            cell = [[2.715, 0, 2.715], [0, 2.715, 2.715], [2.715, 2.715, 0]]
+            structure = StructureData(cell=cell)
+            structure.append_atom(position=(0., 0., 0.), symbols='Si', name='Si')
+            structure.append_atom(position=(1.3575, 1.3575, 1.3575), symbols='Si', name='Si')
+            self.inputs.base['structure'] = structure
+
+        # validate pseudo string
+
+        if self.inputs.base.pw['pseudos'] is None:
+
+            upfstr = self.inputs.test_parameters.pseudo # FIXME pseudo group label as input?
+            upfstr = '' # FIXME FOR TESTING ONLY
+        
+            try:
+                upf = load_group(upfstr)
+                self.inputs.base['pseudos'] = upf.get_pseudos(structure=self.inputs.base.pw['structure'])
+            
+            except:
+                raise NameError(f'{upfstr} is not an imported pseudo family. Make sure to use aiida-pseudo plugin')
 
         nat = self.inputs.base.pw.parameters['CONTROL']['nat']   # nat for random
         wild = random.randint(1, nat)                            # random index
 
         # get user-input test parameters and set defaults
         chain_parameters = self.inputs.test_parameters.get_dict()
-        chain_parameters.setdefault('multivar', False)               # default single-variable difference
         chain_parameters.setdefault('diff_type', 'central')       # default central difference
         chain_parameters.setdefault('diff_order', 'first')        # default first-order difference
+        chain_parameters.setdefault('multivar', False)            # default single-variable difference
         chain_parameters.setdefault('move_atom', 1)               # default first atom moved
         chain_parameters.setdefault('nsteps', 5)                  # default n = 5
         chain_parameters.setdefault('axis', wild)                 # default random direction (int)
-        chain_parameters.setdefault('step', 0.1)                  # default dx = 0.1
-        
-        validate_test_inputs()        
+        chain_parameters.setdefault('step', 0.1)                  # default dx = 0.1   
 
         self.inputs.test_parameters = Dict(dict=chain_parameters)
 
-    @classmethod
     def run_test(self):
 
         '''Displace an atom from initial position to compare forces. -- needs testing'''
 
         # test parameter variable block for logic legibility
-        n = self.inputs.test_parameters.nsteps                  # total number of steps
         atom = self.inputs.test_parameters.move_atom            # ith atom to move
         axis = self.inputs.test_parameters.axis                 # index of axis to perturb
-        step = self.inputs.test_parameters.step                 # step size
         dtype = self.inputs.test_parameters.diff_type           # difference type
-
-        # FIXME NEED TO DO HALF-STEP CALCULATIONS FOR CENTRAL DIFFERENCE TYPE -- 0.0, 0.5, 1.0, 1.5, 2.0 WHERE F(x=1) ~ (F(1.5)-F(0.5))/dh where dh = 1.0
-        #if dtype == 'central':
-        #   add n half-steps to 
-        #   perform calculation at x = x + dx
-        #   perform calculation at x = x + dx/2
         
         atom -= 1 # ith atom has index i-1
         prefix = f'atom{atom}'
 
+        if dtype == 'central':
+            n = 2 * (self.inputs.test_parameters.nsteps + 1) # 2n steps needed for half & whole steps
+        else:
+            n = self.inputs.test_parameters.nsteps + 1
+
         # test atom for n-steps
         for i in range(n):
+
+            if dtype == 'central':
+                step = self.inputs.test_parameters.step / 2
+            else:
+                step = self.inputs.test_parameters.step
 
             if i == 0: # initial calculation
 
@@ -177,10 +176,10 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
             else: # displaced atom calculations
 
                 # get initial calculation data
-                if i == 1: # only structure will change between calculations
+                if i == 1: # only structure changes between calculations
 
-                    initname = f'{prefix}.{self.ctx.axstr}.0' # assign previous calculation name
-                    initcalc = load_node(self.ctx.calculations[initname]) # load previous calculation node
+                    initname = f'{prefix}.{self.ctx.axstr}.0' # assign initial calculation name
+                    initcalc = load_node(self.ctx.calculations[initname]) # load initial calculation node
 
                     code = initcalc.inputs.base.pw.code
                     pseudos = initcalc.inputs.base.pw.pseudos
@@ -235,7 +234,6 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
             # collect the calculation pks for this atom's test series using key convention
             self.ctx.calculations = [self.ctx[f'{prefix}.{self.ctx.axstr}.{k*step}'].pk for k in range(n)]
 
-    @classmethod
     def display_results(self): # quantitative (chart) & qualitative (plot)
 
         '''Compare finite difference forces against DFT forces -- needs testing'''
