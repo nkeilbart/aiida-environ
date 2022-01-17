@@ -2,15 +2,15 @@ from aiida.orm.utils import load_node
 from aiida.engine import calcfunction
 
 @calcfunction
-def compare_forces(pks, type, order, dh):
+def compare_forces(pks, dr, type, order):
 
     '''Compare DFT total force to numerical derivative dE/dx.
     
     Args:
         pks:        aiida.orm.List
+        dr:         aiida.orm.Float
         type:       aiida.orm.Str
         order:      aiida.orm.Str
-        dh:         aiida.orm.Float
 
     Returns:
         differences: list
