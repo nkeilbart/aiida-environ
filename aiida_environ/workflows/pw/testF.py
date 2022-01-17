@@ -35,7 +35,7 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
 
     def setup(self):
 
-        '''Setup default structure & parameters for testing. -- in progress'''
+        '''Setup default structure & parameters for testing. -- testing needed'''
 
         nat = len(self.inputs.structure.sites)  # nat for random
         wild = random.randint(1, nat)           # random index
@@ -51,6 +51,8 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
         self.inputs.settings = Dict(dict=test_parameters)
 
     def validate_structure(self):
+
+        '''Validate input structure and attempt to load pseudo group. --  testing needed'''
 
         # *** STRUCTURE ***
         # 2 Si atoms - aiida-quantumespresso/tests/calculations/test_pw/test_default_pw.in
@@ -77,12 +79,14 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
 
     def validate_settings(self):
 
+        '''Validate test settings with exception handling. -- testing needed'''
+
         # local tuples for validation
         types = ('forward', 'backward', 'central')  # finite difference type tuple
         orders = ('first', 'second')                # finite difference order tuple
         axes = ('x', 'y', 'z')                      # axis tuple
 
-        # local variables for validation
+        # local variables for validation # TODO add validation for move_atom & nsteps?
         steplist = self.inputs.settings['step_list']
         typestr = self.inputs.settings['diff_type']
         ordstr = self.inputs.settings['diff_order']
@@ -95,7 +99,7 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
 
         # validate list length
         if len(steplist) != 3:
-            raise Exception('\nAxis tuple must have 3 elements.')
+            raise Exception('\nAxis tuple must have 3 elements: [dx, dy, dz]')
 
         # validate float elements
         for dh in steplist:
@@ -104,8 +108,10 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
         # assign axis string for calculation descriptions
         if steplist.count(0.0) == 1:
             self.ctx.axstr = axes[steplist.index(0.0)]
-        elif steplist.count(0.0) == 0:
-            raise Exception('\nStep size is 0')
+        elif steplist.count(0.0) == 3:
+            print('\nStep size is 0. Setting to dx = 0.1')
+            self.inputs.settings['step_list'] = [0.1, 0.0, 0.0]
+            self.ctx.axstr = 'x'
         else:
             self.ctx.axstr = 'r'
 
@@ -129,7 +135,7 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
 
     def run_test(self):
 
-        '''Displace an atom from initial position to compare forces. -- needs testing'''
+        '''Displaces an atom from initial position, according to input test settings. -- needs testing'''
 
         # local variable block
         n = self.inputs.settings['nsteps'] + 1          # initial position + n-perturbations
@@ -220,7 +226,7 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
 
     def display_results(self): # quantitative (chart) & qualitative (plot)
 
-        '''Compare finite difference forces against DFT forces -- needs testing'''
+        '''Compare finite difference forces against DFT forces, according to test settings -- needs testing'''
 
         diff_type = self.inputs.settings['diff_type']       # difference type string
         diff_order = self.inputs.settings['diff_order']     # difference order string
