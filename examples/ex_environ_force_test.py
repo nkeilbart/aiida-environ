@@ -5,7 +5,7 @@ from aiida import load_profile
 from aiida.orm import Dict
 
 from aiida_quantumespresso.utils.resources import get_default_options
-from aiida_environ.workflows.pw.testF import ForceTestWorkChain, EnvPwBaseWorkChain
+from aiida_environ.workflows.pw.testF import ForceTestWorkChain
 
 from examples.make_inputs import *
 
@@ -25,21 +25,21 @@ print('base valid fields:', builder.base._valid_fields)
 #builder.base.settings = Dict(dict={'gamma_only': True}) # gamma k-point sampling
 builder.base.pw.code = load_code(1)
 builder.base.pw.structure = make_simple_structure()
-builder.base.pw.kpoints = make_simple_kpoints()
+builder.base.kpoints = make_simple_kpoints()
 builder.base.pw.parameters = make_simple_parameters()
-builder.pw.pseudos = sssp.get_pseudos(structure=builder.structure)
+builder.base.pw.pseudos = sssp.get_pseudos(structure=builder.base.pw.structure)
 builder.base.pw.environ_parameters = make_simple_environ_parameters()
 
 # workchain setup
-builder.structure = make_simple_structure()
-builder.pseudo_group = 'SSSP/1.1/PBE/precision'
-builder.test_settings = {
+#builder.structure = make_simple_structure()
+#builder.pseudo_group = 'SSSP/1.1/PBE/precision'
+builder.test_settings = Dict(dict={
     'diff_type': 'central',
     'diff_order': 'first',
     'move_atom': 1,
     'nsteps': 5,
     'steplist': [0.0, 0.1, 0.0]
-}
+})
 
 calculation = submit(builder)
 #print(calculation)

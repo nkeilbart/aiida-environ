@@ -33,9 +33,9 @@ class ForceTestWorkChain(WorkChain):
             namespace_options={'help': 'Inputs for the `EnvPwBaseWorkChain`.'},
             exclude=('structure')
         )
-        spec.input('structure', valid_type=StructureData)
-        spec.input('pseudo_group', valid_type=Str)
-        spec.input('test_settings', valid_type=Dict)
+        spec.input('structure', valid_type=StructureData, required=False)
+        spec.input('pseudo_group', valid_type=Str, required=False)
+        spec.input('test_settings', valid_type=Dict, required=True)
         spec.outline(
             cls.setup,
             cls.validate_test_settings,
