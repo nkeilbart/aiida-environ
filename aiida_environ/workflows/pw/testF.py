@@ -2,19 +2,29 @@ from aiida.engine import BaseRestartWorkChain, WorkChain
 from aiida.plugins import WorkflowFactory, CalculationFactory
 from aiida.orm import StructureData, Dict, List, Float, Str, load_node, load_group
 
-from aiida_quantumespresso.utils.mapping import prepare_process_inputs
-from aiida_quantumespresso.workflows.protocols.utils import ProtocolMixin, recursive_merge
-
 import random
 
 EnvPwBaseWorkChain = WorkflowFactory('environ.pw.base')
 
+def build_default_structure() -> StructureData:
+
+    '''Returns default testing structure - 2 Si atoms'''
+    # aiida-qe test structure - aiida-quantumespresso/tests/calculations/test_pw/test_default_pw.in
+
+    cell = [[2.715, 0, 2.715], [0, 2.715, 2.715], [2.715, 2.715, 0]]
+    structure = StructureData(cell=cell)
+    structure.append_atom(position=(0., 0., 0.), symbols='Si', name='Si')
+    structure.append_atom(position=(1.3575, 1.3575, 1.3575), symbols='Si', name='Si')
+
+    return structure
+
+
 class ForceTestWorkChain(EnvPwBaseWorkChain):
-    
-    # TODO default block here?
+
+    # build_default_structure() here?    
 
     @classmethod
-    def define(cls, spec):
+    def define(cls, spec) -> None:
         super().define(spec)
         spec.expose_inputs(
             EnvPwBaseWorkChain,
@@ -27,7 +37,6 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
         spec.input('settings', valid_type=Dict)
         spec.outline(
             cls.setup,
-            cls.validate_structure,
             cls.validate_settings,
             cls.run_test,
             cls.display_results,
@@ -48,34 +57,7 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
         test_parameters.setdefault('nsteps', 5)                     # default n = 5
         test_parameters.setdefault('step_list', [0.1, 0.0, 0.0])    # default dr = dx = 0.1
 
-        self.inputs.settings = Dict(dict=test_parameters)
-
-    def validate_structure(self):
-
-        '''Validate input structure and attempt to load pseudo group. --  testing needed'''
-
-        # *** STRUCTURE ***
-        # 2 Si atoms - aiida-quantumespresso/tests/calculations/test_pw/test_default_pw.in
-        # FIXME not sure how to validate structure before base workchain excepts - don't want to load every time
-        
-        if self.inputs.structure is None:
-
-            cell = [[2.715, 0, 2.715], [0, 2.715, 2.715], [2.715, 2.715, 0]]
-            structure = StructureData(cell=cell)
-            structure.append_atom(position=(0., 0., 0.), symbols='Si', name='Si')
-            structure.append_atom(position=(1.3575, 1.3575, 1.3575), symbols='Si', name='Si')
-            self.inputs.base['structure'] = structure
-
-        # *** PSEUDO_GROUP ***
-
-        upfstr = self.inputs.pseudo_group # FIXME pseudo group label as input?
-    
-        try:
-            upf = load_group(upfstr)
-            self.inputs.base['pseudos'] = upf.get_pseudos(structure=self.inputs.structure)
-        
-        except:
-            raise NameError(f'{upfstr} is not an imported pseudo family. Make sure to use aiida-pseudo plugin')
+        self.inputs.settings = Dict(dict=test_parameters)        
 
     def validate_settings(self):
 
@@ -87,13 +69,26 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
         axes = ('x', 'y', 'z')                      # axis tuple
 
         # local variables for validation # TODO add validation for move_atom & nsteps?
+        struct = self.inputs.structure
+        upfstr = self.inputs.pseudo_group
         steplist = self.inputs.settings['step_list']
         typestr = self.inputs.settings['diff_type']
         ordstr = self.inputs.settings['diff_order']
 
+        if isinstance(struct, None): self.inputs.structure = build_default_structure()
+        if not isinstance(upfstr, str): raise Exception('\npseudo_group must be a string')
         if not isinstance(steplist, list): raise Exception('\nstep_list must be a list of 3 floats')
         if not isinstance(typestr, str): raise Exception("\ndiff_type must be 'forward', 'backward', or 'central'")
         if not isinstance(ordstr, str): raise Exception("\ndiff_order must be 'first' or 'second'")
+
+        # *** PSEUDO_GROUP ***
+
+        try:
+            upf = load_group(upfstr)
+            self.inputs.base['pseudos'] = upf.get_pseudos(structure=self.inputs.structure)
+        
+        except:
+            raise NameError(f'{upfstr} is not an imported pseudopotential family. Make sure to use aiida-pseudo plugin')
 
         # *** STEP_TUPLE ***
 

@@ -1,8 +1,9 @@
 from aiida.orm.utils import load_node
+from aiida.orm import List, Float, Str
 from aiida.engine import calcfunction
 
 @calcfunction
-def compare_forces(pks, dr, type, order):
+def compare_forces(pks: List, dh: Float, type: Str, order: Str) -> list:
 
     '''Compare DFT total force to numerical derivative dE/dx.
     
@@ -28,62 +29,71 @@ def compare_forces(pks, dr, type, order):
 
     for i in range(n):
 
-        ith_calc = dft_Fs[i]     # ith-calculation
-        prev_calc = dft_Fs[i-1]  # preceding calculation
-        next_calc = dft_Fs[i+1]  # following calculation
+        # guiding principle: only load calcs when needed
 
-        ith_E = ith_calc.res.energy
-        prev_E = prev_calc.res.energy
-        next_E = next_calc.res.energy
+        if type == 'central' and i > 0 and i % 2 == 0:
 
-        # multivariate differentation? https://en.wikipedia.org/wiki/Finite_difference#Multivariate_finite_differences
-        # ^ Or... parameterize (dx,dy,dz) in dr ?
+            prev_calc = dft_Fs[i-1]  # preceding calculation
+            next_calc = dft_Fs[i+1]  # following calculation
 
-        if order == 'first':
+            prev_E = prev_calc.res.energy
+            next_E = next_calc.res.energy
 
-            if type == 'central':
-                if i > 0 and i%2 == 0:
-                    dE = (next_E - prev_E) / dh
-                    fin_Fs.append(dE)
-                    differences.append(abs(dft_Fs[i] - dE))
+            if order == 'first':
 
-            elif type == 'forward':
-                if i < n-1:
-                    dE = (next_E - ith_E) / dh
-                    fin_Fs.append(dE)
-                    differences.append(abs(dft_Fs[i+1] - dE))
+                dE = (next_E - prev_E) / dh
+                fin_Fs.append(dE)
+                differences.append(abs(dft_Fs[i] - dE))
+            
+            else:
 
-            elif type == 'backward':
-                if i > 0:
-                    dE = (ith_E - prev_E) / dh
-                    fin_Fs.append(dE)
-                    differences.append(abs(dft_Fs[i] - dE))
+                ith_calc = dft_Fs[i]     # ith-calculation
+                ith_E = ith_calc.res.energy
 
-        elif order == 'second': 
+                dE = (next_E + 2*ith_E - prev_E) / dh**2
+                fin_Fs.append(dE)
+                Fdiff = (dft_Fs[i+1] - dft_Fs[i-1]) - dE
+                differences.append(abs(Fdiff))
 
-            if type == 'central':
-                if i > 0 and i%2 == 0:
-                    dE = (next_E + 2*ith_E - prev_E) / dh**2
-                    fin_Fs.append(dE)
-                    Fdiff = (dft_Fs[i+1] - dft_Fs[i-1]) - dE
-                    differences.append(abs(Fdiff))
+        elif type == 'forward':
 
-            elif type == 'forward':
-                if i < n-2:
-                    next2_calc = load_node(pks[i+2])
-                    next2_E = next2_calc.res.energy
-                    dE = (next2_E - next_E + ith_E) / dh**2
-                    fin_Fs.append(dE)
-                    Fdiff = (dft_Fs[i+1] - dft_Fs[i]) - dE
-                    differences.append(abs(Fdiff))
+            ith_calc = dft_Fs[i]     # ith-calculation
+            next_calc = dft_Fs[i+1]  # following calculation
 
-            elif type == 'backward':
-                if i > 1:
-                    prev2_calc = load_node(pks[i-2])
-                    prev2_E = prev2_calc.res.energy
-                    dE = (ith_E - 2*prev_E + prev2_E) / dh**2
-                    fin_Fs.append(dE)
-                    Fdiff = (dft_Fs[i] - dft_Fs[i-1]) - dE
-                    differences.append(abs(Fdiff))
+            if order == 'first' and i < n-1:
+
+                dE = (next_E - ith_E) / dh
+                fin_Fs.append(dE)
+                differences.append(abs(dft_Fs[i+1] - dE))
+
+            elif order == 'second' and i < n-2:
+                
+                next2_calc = load_node(pks[i+2])
+                next2_E = next2_calc.res.energy
+                
+                dE = (next2_E - next_E + ith_E) / dh**2
+                fin_Fs.append(dE)
+                Fdiff = (dft_Fs[i+1] - dft_Fs[i]) - dE
+                differences.append(abs(Fdiff))
+
+        else:
+
+            ith_calc = dft_Fs[i]     # ith-calculation
+            prev_calc = dft_Fs[i-1]  # preceding calculation
+
+            if order == 'first' and  i > 0:
+                dE = (ith_E - prev_E) / dh
+                fin_Fs.append(dE)
+                differences.append(abs(dft_Fs[i] - dE))
+
+            elif order == 'second' and i > 1:
+
+                prev2_calc = load_node(pks[i-2])
+                prev2_E = prev2_calc.res.energy
+
+                dE = (ith_E - 2*prev_E + prev2_E) / dh**2
+                fin_Fs.append(dE)
+                Fdiff = (dft_Fs[i] - dft_Fs[i-1]) - dE
+                differences.append(abs(Fdiff))
 
     return differences # TODO return DFT Fs & numerical Fs?
