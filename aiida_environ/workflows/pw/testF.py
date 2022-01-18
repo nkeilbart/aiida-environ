@@ -2,8 +2,8 @@ from aiida.orm import StructureData, Dict, List, Float, Str, load_node, load_gro
 from aiida.plugins import CalculationFactory
 from aiida.engine import WorkChain
 
-#from aiida_quantumespresso.utils.resources import get_default_options
 from aiida_environ.workflows.pw.base import EnvPwBaseWorkChain
+#from aiida_environ.utils import validate
 
 import random
 
@@ -51,16 +51,16 @@ class ForceTestWorkChain(WorkChain):
         wild = random.randint(1, nat)           # random index
 
         # get user-input test parameters and set defaults
-        test_parameters = self.inputs.test_settings.get_dict()
-        test_parameters.setdefault('diff_type', 'central')          # default central difference
-        test_parameters.setdefault('diff_order', 'first')           # default first-order difference
-        test_parameters.setdefault('move_atom', wild)               # default random atom moved
-        test_parameters.setdefault('nsteps', 5)                     # default n = 5
-        test_parameters.setdefault('step_list', [0.1, 0.0, 0.0])    # default dr = dx = 0.1
+        settings_dict = self.inputs.test_settings.get_dict()
+        settings_dict.setdefault('diff_type', 'central')          # default central difference
+        settings_dict.setdefault('diff_order', 'first')           # default first-order difference
+        settings_dict.setdefault('move_atom', wild)               # default random atom moved
+        settings_dict.setdefault('nsteps', 5)                     # default n = 5
+        settings_dict.setdefault('step_list', [0.1, 0.0, 0.0])    # default dr = dx = 0.1
 
-        self.inputs.test_settings = Dict(dict=test_parameters)        
+        self.inputs.test_settings = Dict(dict=settings_dict)
 
-    def validate_test_settings(self):
+    def validate_test_settings(self): # TODO move validation blocks to /utils/validate.py?
 
         '''Validate test test_settings with exception handling. -- testing needed'''
 
@@ -93,21 +93,20 @@ class ForceTestWorkChain(WorkChain):
 
         # *** STEP_TUPLE ***
 
-        # validate list length
         if len(steplist) != 3:
             raise Exception('\nAxis tuple must have 3 elements: [dx, dy, dz]')
 
-        # validate float elements
         for dh in steplist:
             if not isinstance(dh, float): raise Exception(f'\nStep list may only contain float values')
 
-        # assign axis string for calculation descriptions
         if steplist.count(0.0) == 1:
             self.ctx.axstr = axes[steplist.index(0.0)]
-        elif steplist.count(0.0) == 3:
+
+        elif steplist.count(0.0) == 3: # set default for garbage input
             print('\nStep size is 0. Setting to dx = 0.1')
             self.inputs.test_settings['step_list'] = [0.1, 0.0, 0.0]
             self.ctx.axstr = 'x'
+
         else:
             self.ctx.axstr = 'r'
 
@@ -152,16 +151,15 @@ class ForceTestWorkChain(WorkChain):
             else:
                 step = sum([dh ** 2 for dh in steps]) ** 0.5 # full-step increment
 
-            if i == 0: # initial calculation
+            if i == 0:
 
-                # calculation identifiers
+                # initial calculation identifier
                 self.inputs.base.pw.metadata.description = 'Initial structure | d{} = {:.2}'.format(self.ctx.axstr, i * step) # brief description
                 name = f'{prefix}.{self.ctx.axis}.0' # calculation node key in context dictionary
 
             else: # displaced atom calculations
 
-                # get initial calculation data
-                if i == 1: # only structure changes between calculations
+                if i == 1: # initial calculation data assigned locally for reuse
 
                     initcalc = load_node(self.ctx.calculations[name]) # load initial calculation node
 
@@ -171,9 +169,9 @@ class ForceTestWorkChain(WorkChain):
                     parameters = initcalc.inputs.base.pw.environ_parameters
                     test_settings = initcalc.inputs.base.test_settings
 
-                    cell = self.initcalc.inputs.structure.cell # initial structure unit cell
-                    sites = self.initcalc.inputs.structure.sites # initial structure position tuple; AiiDA Site objects
-                    edge = self.initcalc.inputs.structure.cell_lengths[atom] # max cell length
+                    cell = self.initcalc.inputs.base.structure.cell # initial structure unit cell
+                    sites = self.initcalc.inputs.base.structure.sites # initial structure position tuple; AiiDA Site objects
+                    edge = self.initcalc.inputs.base.structure.cell_lengths[atom] # max cell length
 
                 # perturb atom
                 position = sites[atom].position # initial atom position

@@ -29,8 +29,6 @@ def compare_forces(pks: List, dh: Float, type: Str, order: Str) -> list:
 
     for i in range(n):
 
-        # guiding principle: only load calcs when needed
-
         if type == 'central' and i > 0 and i % 2 == 0:
 
             prev_calc = dft_Fs[i-1]  # preceding calculation

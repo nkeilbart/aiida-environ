@@ -7,26 +7,28 @@ from aiida.orm import Dict
 from aiida_quantumespresso.utils.resources import get_default_options
 from aiida_environ.workflows.pw.testF import ForceTestWorkChain, EnvPwBaseWorkChain
 
-
-from make_inputs import *
+from examples.make_inputs import *
 
 load_profile()
-#sssp = load_group('SSSP/1.1/PBE/precision')
+sssp = load_group('SSSP/1.1/PBE/precision')
 
 # initialize force test workchain builder
 builder = ForceTestWorkChain.get_builder()
 builder.metadata.label = "environ force test example"
 builder.metadata.description = "environ.pw force test workchain"
 
+print('builder valid fields:', builder._valid_fields)
+print('base valid fields:', builder.base._valid_fields)
+
 # base pw calculation setup
 #builder.base.metadata.options = get_default_options()
 #builder.base.settings = Dict(dict={'gamma_only': True}) # gamma k-point sampling
-builder.base.code = load_code(1)
-#builder.pw.structure = make_simple_structure()
-builder.base.kpoints = make_simple_kpoints()
-builder.base.parameters = make_simple_parameters()
-#builder.pw.pseudos = sssp.get_pseudos(structure=builder.structure)
-builder.base.environ_parameters = make_simple_environ_parameters()
+builder.base.pw.code = load_code(1)
+builder.base.pw.structure = make_simple_structure()
+builder.base.pw.kpoints = make_simple_kpoints()
+builder.base.pw.parameters = make_simple_parameters()
+builder.pw.pseudos = sssp.get_pseudos(structure=builder.structure)
+builder.base.pw.environ_parameters = make_simple_environ_parameters()
 
 # workchain setup
 builder.structure = make_simple_structure()
@@ -40,4 +42,4 @@ builder.test_settings = {
 }
 
 calculation = submit(builder)
-print(calculation)
+#print(calculation)
