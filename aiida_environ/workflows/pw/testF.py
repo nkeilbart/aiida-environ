@@ -1,10 +1,11 @@
-from aiida.engine import BaseRestartWorkChain, WorkChain
-from aiida.plugins import WorkflowFactory, CalculationFactory
 from aiida.orm import StructureData, Dict, List, Float, Str, load_node, load_group
+from aiida.plugins import CalculationFactory
+from aiida.engine import WorkChain
+
+#from aiida_quantumespresso.utils.resources import get_default_options
+from aiida_environ.workflows.pw.base import EnvPwBaseWorkChain
 
 import random
-
-EnvPwBaseWorkChain = WorkflowFactory('environ.pw.base')
 
 def build_default_structure() -> StructureData:
 
@@ -19,7 +20,7 @@ def build_default_structure() -> StructureData:
     return structure
 
 
-class ForceTestWorkChain(EnvPwBaseWorkChain):
+class ForceTestWorkChain(WorkChain):
 
     # build_default_structure() here?    
 
@@ -34,10 +35,10 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
         )
         spec.input('structure', valid_type=StructureData)
         spec.input('pseudo_group', valid_type=Str)
-        spec.input('settings', valid_type=Dict)
+        spec.input('test_settings', valid_type=Dict)
         spec.outline(
             cls.setup,
-            cls.validate_settings,
+            cls.validate_test_settings,
             cls.run_test,
             cls.display_results,
         )
@@ -50,18 +51,18 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
         wild = random.randint(1, nat)           # random index
 
         # get user-input test parameters and set defaults
-        test_parameters = self.inputs.settings.get_dict()
+        test_parameters = self.inputs.test_settings.get_dict()
         test_parameters.setdefault('diff_type', 'central')          # default central difference
         test_parameters.setdefault('diff_order', 'first')           # default first-order difference
         test_parameters.setdefault('move_atom', wild)               # default random atom moved
         test_parameters.setdefault('nsteps', 5)                     # default n = 5
         test_parameters.setdefault('step_list', [0.1, 0.0, 0.0])    # default dr = dx = 0.1
 
-        self.inputs.settings = Dict(dict=test_parameters)        
+        self.inputs.test_settings = Dict(dict=test_parameters)        
 
-    def validate_settings(self):
+    def validate_test_settings(self):
 
-        '''Validate test settings with exception handling. -- testing needed'''
+        '''Validate test test_settings with exception handling. -- testing needed'''
 
         # local tuples for validation
         types = ('forward', 'backward', 'central')  # finite difference type tuple
@@ -71,9 +72,9 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
         # local variables for validation # TODO add validation for move_atom & nsteps?
         struct = self.inputs.structure
         upfstr = self.inputs.pseudo_group
-        steplist = self.inputs.settings['step_list']
-        typestr = self.inputs.settings['diff_type']
-        ordstr = self.inputs.settings['diff_order']
+        steplist = self.inputs.test_settings['step_list']
+        typestr = self.inputs.test_settings['diff_type']
+        ordstr = self.inputs.test_settings['diff_order']
 
         if isinstance(struct, None): self.inputs.structure = build_default_structure()
         if not isinstance(upfstr, str): raise Exception('\npseudo_group must be a string')
@@ -105,7 +106,7 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
             self.ctx.axstr = axes[steplist.index(0.0)]
         elif steplist.count(0.0) == 3:
             print('\nStep size is 0. Setting to dx = 0.1')
-            self.inputs.settings['step_list'] = [0.1, 0.0, 0.0]
+            self.inputs.test_settings['step_list'] = [0.1, 0.0, 0.0]
             self.ctx.axstr = 'x'
         else:
             self.ctx.axstr = 'r'
@@ -113,30 +114,30 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
         # *** DIFF_TYPE ***
 
         if typestr in types:
-            self.inputs.test_parameters.diff_type = typestr
+            self.inputs.test_settings.diff_type = typestr
 
         else: # set default for garbage input
             print(f'{typestr} is not valid. Setting to central difference interpolation')
-            self.inputs.test_parameters.diff_type = 'central'
+            self.inputs.test_settings.diff_type = 'central'
 
         # *** DIFF_ORDER ***
         
         if ordstr in orders:
-            self.inputs.test_parameters.diff_order = ordstr
+            self.inputs.test_settings.diff_order = ordstr
         
         else: # set default for garbage input
             print(f'{ordstr} is not valid. Setting to central finite difference')
-            self.inputs.test_parameters.diff_order = 'first'
+            self.inputs.test_settings.diff_order = 'first'
 
     def run_test(self):
 
-        '''Displaces an atom from initial position, according to input test settings. -- needs testing'''
+        '''Displaces an atom from initial position, according to input test test_settings. -- needs testing'''
 
         # local variable block
-        n = self.inputs.settings['nsteps'] + 1          # initial position + n-perturbations
-        steps = self.inputs.settings['step_list']       # index of axis to perturb
-        atom = self.inputs.settings['move_atom']        # ith atom to move
-        difftype = self.inputs.settings['diff_type']    # difference type
+        n = self.inputs.test_settings['nsteps'] + 1          # initial position + n-perturbations
+        steps = self.inputs.test_settings['step_list']       # index of axis to perturb
+        atom = self.inputs.test_settings['move_atom']        # ith atom to move
+        difftype = self.inputs.test_settings['diff_type']    # difference type
         
         atom -= 1 # ith atom has index i-1
         prefix = f'atom{atom}' # calculation identifier prefix
@@ -168,7 +169,7 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
                     pseudos = initcalc.inputs.base.pw.pseudos
                     kpoints = initcalc.inputs.base.pw.kpoints
                     parameters = initcalc.inputs.base.pw.environ_parameters
-                    settings = initcalc.inputs.base.settings
+                    test_settings = initcalc.inputs.base.test_settings
 
                     cell = self.initcalc.inputs.structure.cell # initial structure unit cell
                     sites = self.initcalc.inputs.structure.sites # initial structure position tuple; AiiDA Site objects
@@ -195,7 +196,7 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
                     builder.pw.pseudos = pseudos
                     builder.pw.kpoints = kpoints
                     builder.parameters = parameters
-                    builder.settings = settings
+                    builder.test_settings = test_settings
                     builder.metadata.description = 'Perturbed structure | d{} = {}'.format(self.ctx.axstr, i * step)
                     
                     name = f'{prefix}.{self.ctx.axstr}.{i}'
@@ -221,12 +222,12 @@ class ForceTestWorkChain(EnvPwBaseWorkChain):
 
     def display_results(self): # quantitative (chart) & qualitative (plot)
 
-        '''Compare finite difference forces against DFT forces, according to test settings -- needs testing'''
+        '''Compare finite difference forces against DFT forces, according to test test_settings -- needs testing'''
 
-        diff_type = self.inputs.settings['diff_type']       # difference type string
-        diff_order = self.inputs.settings['diff_order']     # difference order string
-        atom = self.inputs.settings['move_atom']            # index of atom perturbed
-        steps = self.inputs.settings['step_list']           # list of steps
+        diff_type = self.inputs.test_settings['diff_type']       # difference type string
+        diff_order = self.inputs.test_settings['diff_order']     # difference order string
+        atom = self.inputs.test_settings['move_atom']            # index of atom perturbed
+        steps = self.inputs.test_settings['step_list']           # list of steps
         step = sum([dh ** 2 for dh in steps]) ** 0.5        # step size -- same for all difference types
 
         FiniteDiffCalculation = CalculationFactory('environ.compareF')
