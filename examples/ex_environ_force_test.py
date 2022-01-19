@@ -2,12 +2,12 @@
 from aiida.orm.utils import load_code, load_group
 from aiida.engine import submit
 from aiida import load_profile
-from aiida.orm import Dict
+from aiida.orm import Dict, Str
 
-from aiida_quantumespresso.utils.resources import get_default_options
 from aiida_environ.workflows.pw.testF import ForceTestWorkChain
+from aiida_quantumespresso.utils.resources import get_default_options
 
-from examples.make_inputs import *
+from make_inputs import *
 
 load_profile()
 sssp = load_group('SSSP/1.1/PBE/precision')
@@ -17,28 +17,25 @@ builder = ForceTestWorkChain.get_builder()
 builder.metadata.label = "environ force test example"
 builder.metadata.description = "environ.pw force test workchain"
 
-print('builder valid fields:', builder._valid_fields)
-print('base valid fields:', builder.base._valid_fields)
-
 # base pw calculation setup
-#builder.base.metadata.options = get_default_options()
-#builder.base.settings = Dict(dict={'gamma_only': True}) # gamma k-point sampling
-builder.base.pw.code = load_code(1)
-builder.base.pw.structure = make_simple_structure()
+#builder.base.pw.metadata.options = get_default_options()
+#builder.base.pw.settings = Dict(dict={'gamma_only': True}) # gamma k-point sampling
 builder.base.kpoints = make_simple_kpoints()
+builder.base.pw.code = load_code(1)
 builder.base.pw.parameters = make_simple_parameters()
-builder.base.pw.pseudos = sssp.get_pseudos(structure=builder.base.pw.structure)
 builder.base.pw.environ_parameters = make_simple_environ_parameters()
+#builder.base.pw.structure = make_simple_structure()
+#builder.base.pw.pseudos = sssp.get_pseudos(structure=builder.base.pw.structure)
 
 # workchain setup
-#builder.structure = make_simple_structure()
-#builder.pseudo_group = 'SSSP/1.1/PBE/precision'
+builder.structure = make_simple_structure()
+builder.pseudo_group = Str('SSSP/1.1/PBE/precision')
 builder.test_settings = Dict(dict={
     'diff_type': 'central',
     'diff_order': 'first',
-    'move_atom': 1,
+    'atom_to_move': 1,
     'nsteps': 5,
-    'steplist': [0.0, 0.1, 0.0]
+    'step_sizes': [0.0, 0.1, 0.0]
 })
 
 calculation = submit(builder)
