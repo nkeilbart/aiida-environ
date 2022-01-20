@@ -2,6 +2,7 @@ from aiida.engine import calcfunction
 from aiida_environ.utils.occupancy import Occupancy
 from aiida_environ.utils.graph import Graph
 from aiida.plugins import DataFactory
+from aiida.orm import List, StructureData
 
 
 StructureData = DataFactory('structure')
@@ -9,22 +10,32 @@ List = DataFactory('list')
 
 
 @calcfunction
-def adsorbate_gen_multitype(site_index, possible_adsorbates, adsorbate_index, structure, adsorbate_sites):
+def adsorbate_gen_multitype(site_index: List, possible_adsorbates: List, adsorbate_index: List, 
+        structure: StructureData, adsorbate_sites: List): 
     """Generate structures of maximally connected adsorbate configurations
 
+    Uses a graph to connect similar adsorbate configurations. Adjacent configurations must be equivalent
+    after exactly one step where one step can be either:
+
+    - Adding 
+
     Args:
-        site_index (aiida.orm.List): array of indices that describe what type of sites exist
-        possible_adsorbates (aiida.orm.List): array of adsorbates given by strings (assumes single atomic species)
-        TODO: adsorbates should be arbitrarily defined structures
-        adsorbate_index (aiida.orm.List): array of values that determine how many of each adsorbate can exist on each
-            site type
-        structure (aiida.orm.StructureData): the structure to append adsorbates onto
-        adsorbate_sites (aiida.orm.List): list of coordinates to position adsorbates
+        site_index          (aiida.orm.List): 
+            array of indices that describe what type of sites exist
+        possible_adsorbates (aiida.orm.List): 
+            array of adsorbates given by strings (assumes single atomic species)
+            TODO: adsorbates should be arbitrarily defined structures
+        adsorbate_index     (aiida.orm.List): 
+            array of values that determine how many of each adsorbate can exist on each site type
+        structure           (aiida.orm.StructureData): 
+            the structure to append adsorbates onto
+        adsorbate_sites     (aiida.orm.List): 
+            list of coordinates to position adsorbates
 
     Returns:
         aiida.orm.List: a list of PK values that refer to structures that have been stored in the aiida database
             due to this function. The structures are modified versions of the input structure with possible added
-            adsorbates.x
+            adsorbates
     """
     # Setup based on inputs
     max_list = _gen_multitype(site_index, possible_adsorbates, adsorbate_index)
