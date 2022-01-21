@@ -1,7 +1,8 @@
 from aiida.engine import WorkChain, ToContext, append_
 from aiida.plugins import WorkflowFactory
 from aiida.common import AttributeDict
-from aiida.orm import StructureData, List
+from aiida.orm import StructureData, List, Str
+from aiida.orm.nodes.data.upf import get_pseudos_from_structure
 from aiida_environ.calculations.adsorbate.gen_multitype import adsorbate_gen_multitype
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 from aiida.orm.utils import load_node
@@ -34,13 +35,15 @@ class AdsorbateGraphConfiguration(WorkChain):
     def define(cls, spec):
         super().define(spec)
         spec.expose_inputs(EnvPwBaseWorkChain, namespace='base',
-            exclude=('clean_workdir', 'pw.structure', 'pw.parent_folder'),
+            exclude=('clean_workdir', 'pw.structure', 'pw.pseudos', 'pw.parent_folder'),
             namespace_options={'help': 'Inputs for the `PwBaseWorkChain`.'})
         spec.input('adsorbate_sites', valid_type=List)
         spec.input('site_index', valid_type=List)
         spec.input('possible_adsorbates', valid_type=List)
         spec.input('adsorbate_index', valid_type=List)
         spec.input('structure', valid_type=StructureData)
+        spec.input('pseudo_label', valid_type=Str,
+            help='The label for the pseudo group stored by the user')
         spec.outline(
             cls.setup,
             cls.selection, 
@@ -63,6 +66,7 @@ class AdsorbateGraphConfiguration(WorkChain):
             structure = load_node(structure_pk)
             self.report(f'{structure}')
             inputs.pw.structure = structure
+            inputs.pw.pseudos = get_pseudos_from_structure(structure, self.inputs.pseudo_label.value)
 
             inputs = prepare_process_inputs(EnvPwBaseWorkChain, inputs)
             future = self.submit(EnvPwBaseWorkChain, **inputs)
