@@ -75,7 +75,7 @@ class ForceTestWorkChain(WorkChain):
         axes = ('x', 'y', 'z')                      # axis tuple
 
         # local variables for validation # TODO add validation for atom_to_move & nsteps?
-        upfstr = self.inputs.pseudo_group
+        upfstr = self.inputs.pseudo_group.value
         steplist = self.inputs.test_settings['step_sizes']
         typestr = self.inputs.test_settings['diff_type']
         ordstr = self.inputs.test_settings['diff_order']
@@ -86,13 +86,13 @@ class ForceTestWorkChain(WorkChain):
 
         # *** PSEUDO_GROUP ***
 
-        try:
-            upf = load_group(upfstr)
-            self.inputs.base.pw.structure = self.inputs.structure
-            self.inputs.base['pseudos'] = upf.get_pseudos(structure=self.inputs.base.pw.structure)
+        #try:
+        upf = load_group(upfstr)
+        self.inputs.base.pw.structure = self.inputs.structure
+        self.inputs.base.pseudos = upf.get_pseudos(structure=self.inputs.base.pw.structure)
         
-        except:
-            raise NameError(f'{upfstr} is not an imported pseudopotential family. Make sure to use aiida-pseudo plugin')
+        #except:
+        #    raise NameError(f'{upfstr} is not an imported pseudopotential family. Make sure to use aiida-pseudo plugin')
 
         # *** step_sizes ***
 
