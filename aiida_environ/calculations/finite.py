@@ -3,7 +3,7 @@ from aiida.orm import List, Float, Str
 from aiida.engine import calcfunction
 
 @calcfunction
-def compare_forces(pks: List, dh: Float, type: Str, order: Str) -> list:
+def calculate_finite_differences(pks: List, dh: Float, type: Str, order: Str) -> list:
 
     '''Compare DFT total force to numerical derivative dE/dx.
     
