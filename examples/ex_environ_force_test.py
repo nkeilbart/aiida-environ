@@ -4,7 +4,7 @@ from aiida.engine import submit
 from aiida import load_profile
 from aiida.orm import Dict, Str
 
-from aiida_environ.workflows.pw.testF import ForceTestWorkChain
+from aiida_environ.workflows.pw.compare_forces import ForceTestWorkChain
 from aiida_quantumespresso.utils.resources import get_default_options
 
 from make_inputs import *
