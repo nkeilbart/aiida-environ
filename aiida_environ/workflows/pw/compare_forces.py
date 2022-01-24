@@ -173,10 +173,6 @@ class FiniteForcesWorkChain(WorkChain):
                 },
                 'metadata': {
                     'description': f"{which} structure | d{self.ctx.axstr} = {dr:.2f}",
-                    'resources': {
-                        'num_machines': 1,
-                        'num_mpiprocs_per_machine': 4
-                    }
                 },
                 'kpoints': self.inputs.base.kpoints
             }

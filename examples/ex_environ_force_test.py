@@ -30,7 +30,7 @@ builder.structure = make_simple_structure()
 builder.test_settings = Dict(dict={
     'diff_type': 'central',
     'diff_order': 'first',
-    'atom_to_move': 1,
+    'atom_to_perturb': 1,
     'nsteps': 2,
     'step_sizes': [0.0, 0.1, 0.0]
 })
