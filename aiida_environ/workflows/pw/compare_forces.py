@@ -1,7 +1,7 @@
 from aiida.orm import StructureData, QueryBuilder, Dict, List, Float, Str, load_group
 from aiida.engine import WorkChain
 
-from aiida_environ.calculations.finite import calculate_finite_differences
+from aiida_environ.calculations.energy_differentiate import calculate_finite_differences
 from aiida_environ.workflows.pw.base import EnvPwBaseWorkChain
 from aiida_pseudo.groups.family.pseudo import PseudoPotentialFamily
 
@@ -21,7 +21,7 @@ def _build_default_structure() -> StructureData:
         return structure
 
 
-class FiniteForcesWorkChain(WorkChain): 
+class CompareForcesWorkChain(WorkChain): 
     """  """
 
     types = ('forward', 'backward', 'central')  # finite difference type tuple
@@ -119,15 +119,15 @@ class FiniteForcesWorkChain(WorkChain):
         steps = self.inputs.test_settings['step_sizes']
         step = sum([dh ** 2 for dh in steps]) ** 0.5 # same for all difference types
 
-        time.sleep(60)
+        #time.sleep(60)
 
         # get converged CalcJobs pks from WorkChain descendants
-        calc_list = []
-        for chain in self.ctx.environ_chain_list:
-            calc_list.append(chain.called_descendants[-1])
+        #calc_list = []
+        #for chain in self.ctx.environ_chain_list:
+        #    calc_list.append(chain.called_descendants[-1].pk)
 
         results = calculate_finite_differences(
-            List(list=calc_list),
+            #List(list=calc_list),
             Float(step),
             Str(diff_type),
             Str(diff_order)
@@ -167,6 +167,8 @@ class FiniteForcesWorkChain(WorkChain):
             which = 'Initial'
         else:
             which = 'Perturbed'
+
+        # TODO I would rather pass initial base inputs when submitting, but aiida complains, so new inputs dict is made every time
 
         inputs = {
             'pw': {
@@ -292,6 +294,8 @@ class FiniteForcesWorkChain(WorkChain):
         else:
             print(f'{ord_str} is not valid. Setting to first-order finite difference')
             self.inputs.test_settings.diff_order = 'first'
+
+        # TODO validate minimum number of calcs for second diff_order finite difference
 
     def _validate_step_sizes(self):
         """Validates step size input"""
