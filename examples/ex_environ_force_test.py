@@ -28,10 +28,10 @@ builder.base.pw.environ_parameters = make_simple_environ_parameters()
 # workchain setup
 builder.structure = make_simple_structure()
 builder.test_settings = Dict(dict={
-    'diff_type': 'central',
+    'diff_type': 'forward',
     'diff_order': 'first',
     'atom_to_perturb': 1,
-    'nsteps': 2,
+    'nsteps': 1,
     'step_sizes': [0.0, 0.1, 0.0]
 })
 

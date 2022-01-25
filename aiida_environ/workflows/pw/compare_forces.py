@@ -6,6 +6,7 @@ from aiida_environ.workflows.pw.base import EnvPwBaseWorkChain
 from aiida_pseudo.groups.family.pseudo import PseudoPotentialFamily
 
 import random
+import time
 
 def _build_default_structure() -> StructureData:
         """Returns default StructureData - 2 Si atoms"""
@@ -98,32 +99,35 @@ class FiniteForcesWorkChain(WorkChain):
 
         # submit calculations
         for i in range(n):
-
-            calcname = f'{prefix}.{self.ctx.axstr}.{i}'
+            chain_name = f'{prefix}.{self.ctx.axstr}.{i}'
             inputs = self._prepare_inputs(i, i * step)
-            calc = self.submit(EnvPwBaseWorkChain, **inputs)
+            env_chain = self.submit(EnvPwBaseWorkChain, **inputs)
+            self.to_context(**{chain_name: env_chain})
 
-            self.to_context(**{calcname: calc})
-
-        # collect the calculation pks
-        self.ctx.calculations = []
-
+        # collect the WorkChain
+        self.ctx.environ_chain_list = []
         for k in range(n):
             name = f'{prefix}.{self.ctx.axstr}.{k}'
-            self.ctx.calculations.append(self.ctx[name].pk)
+            self.ctx.environ_chain_list.append(self.ctx[name])
 
     def display_results(self): # quantitative (chart) & qualitative (plot)
 
         '''Compare finite difference forces against DFT forces, according to test test_settings -- needs testing'''
 
-        diff_type = self.inputs.test_settings['diff_type']       # difference type string
-        diff_order = self.inputs.test_settings['diff_order']     # difference order string
-        steps = self.inputs.test_settings['step_sizes']          # list of steps
-        step = sum([dh ** 2 for dh in steps]) ** 0.5             # step size -- same for all difference types
+        diff_type = self.inputs.test_settings['diff_type']
+        diff_order = self.inputs.test_settings['diff_order']
+        steps = self.inputs.test_settings['step_sizes']
+        step = sum([dh ** 2 for dh in steps]) ** 0.5 # same for all difference types
 
-        calclist = self.ctx.calculations
+        time.sleep(60)
+
+        # get converged CalcJobs pks from WorkChain descendants
+        calc_list = []
+        for chain in self.ctx.environ_chain_list:
+            calc_list.append(chain.called_descendants[-1])
+
         results = calculate_finite_differences(
-            List(list=calclist),
+            List(list=calc_list),
             Float(step),
             Str(diff_type),
             Str(diff_order)
@@ -165,30 +169,41 @@ class FiniteForcesWorkChain(WorkChain):
             which = 'Perturbed'
 
         inputs = {
-                'pw': {
-                    'code': self.inputs.base.pw.code,
-                    'pseudos': self.ctx.pseudos,
-                    'parameters': self.inputs.base.pw.parameters,
-                    'environ_parameters': self.inputs.base.pw.environ_parameters,
-                },
+            'pw': {
+                'code': self.inputs.base.pw.code,
+                'pseudos': self.ctx.pseudos,
+                'parameters': self.inputs.base.pw.parameters,
+                'environ_parameters': self.inputs.base.pw.environ_parameters,
                 'metadata': {
-                    'description': f"{which} structure | d{self.ctx.axstr} = {dr:.2f}",
-                },
-                'kpoints': self.inputs.base.kpoints
-            }
+                    'options': {
+                        'resources': {
+                            'num_machines': 1,
+                            'num_mpiprocs_per_machine': 4}
+                    }
+                }
+            },
+            'metadata': {
+                'description': f"{which} structure | Atom {self.atom+1} d{self.ctx.axstr} = {dr:.2f}",
+            },
+            'kpoints': self.inputs.base.kpoints
+            #'automatic_parallelization': {
+            #    'max_wallclock_seconds': 1800,
+            #    'target_time_seconds': 600
+            #    'max_num_machines': 2
+            #}
+        }
 
         if i == 0:
             inputs['pw']['structure'] = self.inputs.structure
         else:
             inputs['pw']['structure'] = self._perturb_atom(
-                        atom = self.atom,
                         i = i,
                         steps = self.inputs.test_settings['step_sizes']
                     )
 
         return inputs
 
-    def _perturb_atom(self, atom: int, i: int, steps: list) -> StructureData:
+    def _perturb_atom(self, i: int, steps: list) -> StructureData:
         """Returns StructureData with updated position"""
     
         new_position = [0., 0., 0.]
@@ -198,7 +213,7 @@ class FiniteForcesWorkChain(WorkChain):
             
             if steps[j] != 0.0:
             
-                new_position[j] = self.ctx.initial_position[j] + i * steps[j] # FIXME ATOM BEING DISPLACED AT (i**2) * step
+                new_position[j] = self.ctx.initial_position[j] + i * steps[j]
 
                 if (self.ctx.edge - new_position[j]) > 0.001:
                     continue
@@ -211,10 +226,9 @@ class FiniteForcesWorkChain(WorkChain):
         new_structure = StructureData(cell=self.ctx.cell) # NEW STRUCTURE HAS 
 
         # TODO index existing StructureData for one-to-one Site replacement?
-        # build new StructureData
         for k in range(len(self.ctx.sites)):
 
-            if k == atom:
+            if k == self.atom:
                 new_structure.append_atom(
                     position=new_position,
                     symbols=self.ctx.sites[k].kind_name
@@ -296,11 +310,13 @@ class FiniteForcesWorkChain(WorkChain):
         for dh in steplist:
             if not isinstance(dh, float): raise Exception(f'\nStep list may only contain float values')
 
-        # magnitude validation
-        if steplist.count(0.0) == 1:
-            self.ctx.axstr = self.axes[steplist.index(0.0)]
+        # direction validation
+        if steplist.count(0.0) == 2:
+            for step in steplist:
+                if step != 0.0: direction = steplist.index(step)
+            self.ctx.axstr = self.axes[direction]
         elif steplist.count(0.0) == 3: # set default for garbage input
-            print('\nStep size is 0. Setting to dx = 0.1')
+            print('\nStep size in every direction is 0. Setting to dx = 0.1')
             self.inputs.test_settings['step_sizes'] = [0.01, 0.0, 0.0]
             self.ctx.axstr = 'x'
         else:
