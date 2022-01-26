@@ -1,4 +1,4 @@
-from aiida.orm import StructureData, QueryBuilder, Dict, List, Float, Str, load_group
+from aiida.orm import StructureData, QueryBuilder, Dict, List, Float, Str, Int, load_group
 from aiida.engine import WorkChain
 
 from aiida_environ.calculations.energy_differentiate import calculate_finite_differences
@@ -6,7 +6,7 @@ from aiida_environ.workflows.pw.base import EnvPwBaseWorkChain
 from aiida_pseudo.groups.family.pseudo import PseudoPotentialFamily
 
 import random
-import time
+import pandas
 
 def _build_default_structure() -> StructureData:
         """Returns default StructureData - 2 Si atoms"""
@@ -22,7 +22,7 @@ def _build_default_structure() -> StructureData:
 
 
 class CompareForcesWorkChain(WorkChain): 
-    """  """
+    """WorkChain to evaluate EnvPwBaseWorkChain forces against finite difference forces"""
 
     types = ('forward', 'backward', 'central')  # finite difference type tuple
     orders = ('first', 'second')                # finite difference order tuple
@@ -30,21 +30,29 @@ class CompareForcesWorkChain(WorkChain):
 
     @classmethod
     def define(cls, spec) -> None:
-        """   """
+        """I/O specifications & WorkChain outline"""
         
         super().define(spec)
 
+        # Input validation
         spec.expose_inputs(
             EnvPwBaseWorkChain,
             namespace='base',
-            namespace_options={'help': 'Inputs for the `FiniteForcesWorkChain`.'},
+            namespace_options={
+                'help': 'Inputs for the `FiniteForcesWorkChain`.'
+            },
             exclude=('pw.structure','pw.pseudos',)
         )
-
         spec.input('structure', valid_type=StructureData, default=lambda: _build_default_structure())
-        spec.input('pseudo_group', valid_type=Str, default=lambda: Str('SSSP/1.1/PBE/efficiency'))
-        spec.input('test_settings', valid_type=Dict, required=True)
+        spec.input('pseudo_group', valid_type=Str, default=lambda: Str('SSSP/1.1/PBE/efficiency'), help='aiida-pseudo family string')
+        spec.input(
+            'test_settings',
+            valid_type=Dict,
+            required=True,
+            help='Force test settings to increment atom_to_perturb by dr based on step_sizes [dx, dy, dz] and evaluate finite differences for n-steps'
+        )
 
+        # WorkChain logic
         spec.outline(
             cls.setup,
             cls.run_test,
@@ -62,7 +70,7 @@ class CompareForcesWorkChain(WorkChain):
         settings_dict.setdefault('diff_type', 'forward')
         settings_dict.setdefault('diff_order', 'first')
         settings_dict.setdefault('atom_to_perturb', wild)
-        settings_dict.setdefault('nsteps', 5)
+        settings_dict.setdefault('n_steps', 5)
         settings_dict.setdefault('step_sizes', [0.1, 0.0, 0.0])
 
         # validate inputs
@@ -70,7 +78,7 @@ class CompareForcesWorkChain(WorkChain):
         self._validate_diff_type()
         self._validate_diff_order()
         self._validate_atom_to_perturb(natoms)
-        self._validate_nsteps(settings_dict['nsteps'])
+        self._validate_n_steps(settings_dict['n_steps'])
         self._validate_step_sizes()
 
         self.inputs.test_settings = Dict(dict=settings_dict)
@@ -81,7 +89,7 @@ class CompareForcesWorkChain(WorkChain):
         # local variable block
         diff_type = self.inputs.test_settings['diff_type']      # difference type
         steps = self.inputs.test_settings['step_sizes']         # list of step sizes
-        n = self.inputs.test_settings['nsteps'] + 1             # initial position + n-perturbations
+        n = self.inputs.test_settings['n_steps'] + 1             # initial position + n-perturbations
         prefix = f'atom{self.atom}'
 
         # context variable block
@@ -104,11 +112,12 @@ class CompareForcesWorkChain(WorkChain):
             env_chain = self.submit(EnvPwBaseWorkChain, **inputs)
             self.to_context(**{chain_name: env_chain})
 
+        # FIXME WorkChain collection not needed if called_descendants method cannot be called
         # collect the WorkChain
-        self.ctx.environ_chain_list = []
-        for k in range(n):
-            name = f'{prefix}.{self.ctx.axstr}.{k}'
-            self.ctx.environ_chain_list.append(self.ctx[name])
+        #self.ctx.environ_chain_list = []
+        #for k in range(n):
+        #    name = f'{prefix}.{self.ctx.axstr}.{k}'
+        #    self.ctx.environ_chain_list.append(self.ctx[name])
 
     def display_results(self): # quantitative (chart) & qualitative (plot)
 
@@ -116,49 +125,37 @@ class CompareForcesWorkChain(WorkChain):
 
         diff_type = self.inputs.test_settings['diff_type']
         diff_order = self.inputs.test_settings['diff_order']
-        steps = self.inputs.test_settings['step_sizes']
-        step = sum([dh ** 2 for dh in steps]) ** 0.5 # same for all difference types
+        step_sizes = self.inputs.test_settings['step_sizes']
+        step = sum([dh ** 2 for dh in step_sizes]) ** 0.5 # same for all difference types
+        n = self.inputs.test_settings['n_steps']
 
-        #time.sleep(60)
-
+        # FIXME collect last CalcJob of descendant EnvBaseWorkChains into a list, to pass to calcfxn
         # get converged CalcJobs pks from WorkChain descendants
         #calc_list = []
         #for chain in self.ctx.environ_chain_list:
         #    calc_list.append(chain.called_descendants[-1].pk)
 
         results = calculate_finite_differences(
-            #List(list=calc_list),
+            #List(list=calc_list), # FIXME passes list of CalcJob pks
+            Int(n),
             Float(step),
             Str(diff_type),
             Str(diff_order)
         )
 
-        # calculation parameters
+        # *** DISPLAY RESULTS ***
+
         print()
-        print(f'atom number = {self.atom}')
-        print(f'axis        = {self.ctx.axstr}')
-        print('d{}          = {}'.format(self.ctx.axstr, step))
+        print('atom number  = {}'.format(self.atom))
+        print('d{}           = {:.2f}'.format('x', step_sizes[0]))
+        print('d{}           = {:.2f}'.format('y', step_sizes[1]))
+        print('d{}           = {:.2f}'.format('z', step_sizes[2]))
+        print('difference   = {}-order {}'.format(diff_order, diff_type))
         #print(f'environ     = {use_environ}')
         #print(f'doublecell  = {double_cell}')
+        print()
 
-        print(results) # FIXME ADD DISPLAY FORMATTING
-
-        # header
-        #print('\ncoord    energy       force      fd     err')
-
-        # display results
-        #for i in range(len(results)):
-        #
-        #    coord = init_coord + dh * i
-        #    print('{:5.2f} {:12.8f}{:12.8f}'.format(coord, *results[i]), end=' ')
-        #
-        #    if 0 < i < len(results) - 1:
-        #        f, fd = compute_fd(results, i)
-        #        print(f'{fd:6.3f} {abs(fd - f):2.2e}', end=' ')
-        #
-        #    print()
-
-        return
+        print(pandas.DataFrame(data=results.attributes))
 
     def _prepare_inputs(self, i: int, dr: float) -> dict:
         """Returns input dictionary ready for Process submission"""
@@ -168,7 +165,7 @@ class CompareForcesWorkChain(WorkChain):
         else:
             which = 'Perturbed'
 
-        # TODO I would rather pass initial base inputs when submitting, but aiida complains, so new inputs dict is made every time
+        # TODO this function only exists because passing base inputs to new submits raises exceptions with exposed inputs
 
         inputs = {
             'pw': {
@@ -295,8 +292,6 @@ class CompareForcesWorkChain(WorkChain):
             print(f'{ord_str} is not valid. Setting to first-order finite difference')
             self.inputs.test_settings.diff_order = 'first'
 
-        # TODO validate minimum number of calcs for second diff_order finite difference
-
     def _validate_step_sizes(self):
         """Validates step size input"""
 
@@ -337,13 +332,19 @@ class CompareForcesWorkChain(WorkChain):
 
         # magnitude validation
         if atom < 0 or atom > nat:
-            raise Exception('\nAtom index must be greater than zero and less than number of atoms')
+            raise Exception('\nAtom index must be greater than zero and less than number of atoms. Setting to first atom')
 
         self.atom = atom - 1
 
-    def _validate_nsteps(self, nsteps):
+    def _validate_n_steps(self, n):
         """Validates total number of steps input"""
 
         # type validation
-        if not isinstance(nsteps, int):
-            raise Exception('\nnsteps must be an int')
+        if not isinstance(n, int):
+            raise Exception('\nn_steps must be an int')
+
+        # TODO validate minimum number of calcs for second diff_order finite difference
+        order = self.inputs.test_settings['diff_order']
+        if order == 'second' and n < 2:
+            print('\nMininum 2 steps required for second-order differentiation. Setting n_steps = 2')
+            self.inputs.test_settings['n_steps'] = 2

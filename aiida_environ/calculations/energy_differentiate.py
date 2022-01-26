@@ -1,137 +1,213 @@
 from aiida_environ.workflows.pw.base import EnvPwBaseWorkChain
 
-from aiida.orm.utils import load_node
-from aiida.orm import Dict, Float, Str, QueryBuilder
+from aiida.orm import Dict, Int, Float, Str, QueryBuilder
 from aiida.engine import calcfunction
 
-def _calculate_first_order_difference(energies: tuple, force: float, dr: float):
+def _get_calculation_nodes():
+    """Query database for EnvPwCalculation nodes"""
+
+    # Get the last N EnvPwBaseWorkChains
+    qb = QueryBuilder()
+    qb.append(EnvPwBaseWorkChain)
+    base_chains = qb.all(flat=True)[-N:]
+
+    # Get Environ Calcs from WorkChains
+    calcs = []
+    for chain in base_chains:
+        last_calc_of_chain = chain.called_descendants[-1]
+        calcs.append(last_calc_of_chain)
+
+    return calcs
+
+def _calculate_first_order_difference(energies: tuple, force: float):
     """
     Returns first-order finite difference & compares to DFT force:
     finite difference = (energies[1] - energies[0]) / dr
     """
 
-    dE = (energies[1] - energies[0]) / dr
+    dE = (energies[1] - energies[0]) / STEP
     return (dE, abs(dE - force))
 
-def _calculate_second_order_difference(energies: tuple, forces: tuple, dr: float):
+def _calculate_second_order_difference(energies: tuple, forces: tuple):
     """
     Returns second-order finite difference & compares to force difference:
     finite difference = (energies[2] + 2*energies[1] - energies[0]) / dr**2
     """
 
-    dE = (energies[2] + 2*energies[1] - energies[0]) / dr**2
+    dE = (energies[2] + 2*energies[1] - energies[0]) / STEP**2
     dF = forces[1] - forces[0]
     return (dE, abs(dE - dF))
 
+def _calculate_central_difference(i, order):
+    """Returns first or second order central difference derivative"""
+
+    if order == 'first':
+
+        return _calculate_first_order_difference(
+                    energies=(ENERGIES[i-1], ENERGIES[i+1]),
+                    force=FORCES[i]
+                )
+    elif order == 'second':
+
+        print('i:', i, 'ENERGIES:', ENERGIES)
+        return _calculate_second_order_difference(
+                    energies=(
+                        ENERGIES[i-2],
+                        ENERGIES[i],
+                        ENERGIES[i+2]
+                    ),
+                    forces=(
+                        FORCES[i-1],
+                        FORCES[i+1]
+                    )
+                )
+
+def _calculate_forward_difference(i, order):
+    """Returns first or second order forward difference derivative"""
+
+    if order == 'first':
+
+        #print('\nENERGIES[i]:', ENERGIES[i], '\tENERGIES[i+1]:', ENERGIES[i+1])
+        return _calculate_first_order_difference(
+                    energies=(ENERGIES[i], ENERGIES[i+1]),
+                    force=FORCES[i]
+                )
+    elif order == 'second':
+
+        return _calculate_second_order_difference(
+                    energies=(
+                        ENERGIES[i],
+                        ENERGIES[i+1],
+                        ENERGIES[i+2]
+                    ),
+                    forces=(
+                        FORCES[i],
+                        FORCES[i+1]
+                    )
+                )
+
+def _calculate_backward_difference(i, order):
+    """Returns first or second order backward derivative"""
+
+    if order == 'first':
+
+        return _calculate_first_order_difference(
+            energies=(ENERGIES[i-1], ENERGIES[i]),
+            force=FORCES[i]
+        )
+
+    elif order == 'second':
+
+        return _calculate_second_order_difference(
+                energies=(
+                    ENERGIES[i-2],
+                    ENERGIES[i-1],
+                    ENERGIES[i]
+                ),
+                forces=(
+                    FORCES[i-1],
+                    FORCES[i]
+                )
+            )
+
+def _format_results(diff_type, diff_order):
+    """Returns n-length energy and force lists for central difference results"""
+
+    if diff_type == 'central':
+
+        if diff_order == 'first':
+            return [ENERGIES[i] for i in range(2, N-1, 2)], [FORCES[i] for i in range(2, N-1, 2)]
+
+        elif diff_order == 'second':
+            return [ENERGIES[i] for i in range(2, N, 4)], [FORCES[i] for i in range(2, N, 4)]
+
+    elif diff_type == 'forward':
+        return ENERGIES, FORCES[1:]
+
+    else:
+        return ENERGIES, FORCES[:-1]
+
 @calcfunction
-def calculate_finite_differences(dr: Float, diff_type: Str, diff_order: Str) -> list:
+def calculate_finite_differences(n: Int, dr: Float, diff_type: Str, diff_order: Str) -> list:
 
     '''
     Compare DFT total force to numerical derivative dE/dr.
     
     Args:
-        pks:            aiida.orm.List
-        dr:            aiida.orm.Float
-        diff_type:       aiida.orm.Str
-        diff_order:      aiida.orm.Str
+        n:              aiida.orm.Int
+        dr:             aiida.orm.Float
+        diff_type:      aiida.orm.Str
+        diff_order:     aiida.orm.Str
 
     Returns:
         differences: list
-
     '''
 
-    qb = QueryBuilder()
-    qb.append(EnvPwBaseWorkChain)
-    base_chains = qb.all(flat=True)
-    
-    calc_list = []
-    for chain in base_chains:
-        calc_list.append(chain.called_descendants[-1])
+    global N
+    global STEP
+    global ENERGIES
+    global FORCES
 
-    energies = [calc.res.energy for calc in calc_list]
-    dft_forces = [calc.res.total_force for calc in calc_list]
-    fin_forces = []
+    N = n.value + 1 # include initial calculation
+
+    calc_list = _get_calculation_nodes()
+
+    STEP = dr.value
+    ENERGIES = [calc.res.energy for calc in calc_list]
+    FORCES = [calc.res.total_force for calc in calc_list]
+
+    finite_forces = []
     differences = []
 
-    if diff_type == 'central':
-        n = 2 * len(calc_list) # half & whole step calcs
-    else:
-        n = len(calc_list)
+    # *** CALCULATE FINITE DIFFERENCE FORCES ***
 
-    for i in range(n):
+    for i in range(N):
 
-        ith_E = energies[i]
-        if i > 0:
-            prev_E = energies[i-1]
-        if i < (n-1):
-            next_E = energies[i+1]
-
-        if diff_type == 'central' and i > 0 and i % 2 == 0:
-
-            if diff_order == 'first':
-
-                dE, dF = _calculate_first_order_difference(
-                    energies=(prev_E, next_E),
-                    dr=dr.value,
-                    force=dft_forces[i]
-                )
-            
+        if diff_type == 'central' and 0 < i < (N-1) and i % 2 == 0:
+            if diff_order == 'second' and i == 0 or i == (N-2): continue
             else:
+                dE, dF = _calculate_central_difference(i, diff_order)
+                finite_forces.append(dE)
+                differences.append(dF)
 
-                dE, dF = _calculate_second_order_difference(
-                    energies=(next_E, ith_E, prev_E),
-                    dr=dr.value,
-                    forces=(dft_forces[i+1], dft_forces[i-1])
-                )
+        elif diff_type == 'forward' and i < (N-1):
+            if diff_order == 'second' and i == (N-2): continue
+            else:
+                dE, dF = _calculate_forward_difference(i, diff_order)
+                finite_forces.append(dE)
+                differences.append(dF)
 
-        elif diff_type == 'forward':
+        elif diff_type == 'backward' and i > 0:
+            if diff_order == 'second' and i == 1: continue
+            else:
+                dE, dF = _calculate_backward_difference(i, diff_order)
+                finite_forces.append(dE)
+                differences.append(dF)
 
-            if diff_order == 'first' and i < n-2:
+    # *** FORMAT & RETURN RESULTS ***
+    
+    ENERGIES, FORCES = _format_results(
+            diff_type,
+            diff_order
+        )
 
-                dE, dF = _calculate_first_order_difference(
-                    energies=(ith_E, next_E),
-                    dr=dr.value,
-                    force=dft_forces[i]
-                )
+    if diff_type == 'forward':
+        finite_forces = finite_forces[1:]
+        differences = differences[1:]
 
-            elif diff_order == 'second' and i < n-3:
-                
-                next2_E = energies[i+2]
-                dE, dF = _calculate_second_order_difference(
-                    energies=(ith_E, next_E, next2_E),
-                    dr=dr.value,
-                    forces=(dft_forces[i], dft_forces[i+1])
-                )
+    elif diff_type == 'backward':
+        finite_forces = finite_forces[:-1]
+        differences = differences[:-1]
 
-        else:
+    results = Dict(dict={
+                    "Environ": FORCES,
+                    "Finite": finite_forces,
+                    "\u0394F": differences
+                })
 
-            if diff_order == 'first' and  i > 0:
+    #data = Dict(dict={
+    #        #"EnvPwCalculations": calc_list,
+    #        "Energies": ENERGIES,
+    #        })
 
-                dE = (ith_E - prev_E) / dr
-                dE, dF = _calculate_first_order_difference(
-                    energies=(prev_E, next_E),
-                    dr=dr.value,
-                    force=dft_forces[i]
-                )
-
-            elif diff_order == 'second' and i > 1:
-
-                prev2_E = energies[i-2]
-                dE, dF = _calculate_second_order_difference(
-                    energies=(prev2_E, prev_E, ith_E),
-                    dr=dr.value,
-                    forces=(dft_forces[i-1], dft_forces[i])
-                )
-
-        fin_forces.append(dE)
-        differences.append(dF)
-
-    results = {
-        #"EnvPwCalculations": calc_list,
-        "Energies": energies,
-        "Forces": dft_forces,
-        "Calculated Forces": fin_forces,
-        "Force Differences": differences
-    }
-
-    return Dict(dict=results) # TODO return DFT Fs & numerical Fs?
+    return results

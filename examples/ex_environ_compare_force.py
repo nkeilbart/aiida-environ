@@ -15,11 +15,11 @@ inputs = {
     'structure': make_simple_structure(),
     'pseudo_group': Str('SSSP/1.1/PBE/precision'),
     'test_settings': Dict(dict={
-        'diff_type': 'forward',
-        'diff_order': 'first',
-        'atom_to_perturb': 1,
-        'nsteps': 2,
-        'step_sizes': [0.0, 0.1, 0.0]
+        'diff_type': 'central',
+        'diff_order': 'second',
+        'atom_to_perturb': 2,
+        'n_steps': 3,
+        'step_sizes': [0.01, 0.01, 0.01]
     }),
     'base': {
         'pw': {
@@ -30,8 +30,12 @@ inputs = {
                 'options': get_default_options()
             }
         },
-        'kpoints': make_simple_kpoints()
-
+        'kpoints': make_simple_kpoints(),
+        #'automatic_parallelization': {
+            #    'max_wallclock_seconds': 1800,
+            #    'target_time_seconds': 600
+            #    'max_num_machines': 2
+            #}
     },
     'metadata': {
         'label': "finite difference chain example w/ environ base chain",
@@ -39,5 +43,5 @@ inputs = {
     }
 }
 
-calculation = submit(FiniteForcesWorkChain, **inputs)
+calculation = submit(CompareForcesWorkChain, **inputs)
 print(calculation)
