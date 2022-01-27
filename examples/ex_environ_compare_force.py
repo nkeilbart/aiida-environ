@@ -13,13 +13,13 @@ load_profile()
 
 inputs = {
     'structure': make_simple_structure(),
-    'pseudo_group': Str('SSSP/1.1/PBE/precision'),
+    'pseudo_group': Str('SSSP/1.1/PBE/efficiency'),
     'test_settings': Dict(dict={
         'diff_type': 'central',
-        'diff_order': 'second',
+        'diff_order': 'first', # center worked
         'atom_to_perturb': 2,
         'n_steps': 3,
-        'step_sizes': [0.01, 0.01, 0.01]
+        'step_sizes': [0.01, 0.00, 0.01]
     }),
     'base': {
         'pw': {

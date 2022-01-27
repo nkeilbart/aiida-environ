@@ -1,4 +1,4 @@
-from aiida.orm import StructureData, QueryBuilder, Dict, List, Float, Str, Int, load_group
+from aiida.orm import StructureData, QueryBuilder, Dict, List, Float, Str, load_group
 from aiida.engine import WorkChain
 
 from aiida_environ.calculations.energy_differentiate import calculate_finite_differences
@@ -6,7 +6,6 @@ from aiida_environ.workflows.pw.base import EnvPwBaseWorkChain
 from aiida_pseudo.groups.family.pseudo import PseudoPotentialFamily
 
 import random
-import pandas
 
 def _build_default_structure() -> StructureData:
         """Returns default StructureData - 2 Si atoms"""
@@ -51,12 +50,13 @@ class CompareForcesWorkChain(WorkChain):
             required=True,
             help='Force test settings to increment atom_to_perturb by dr based on step_sizes [dx, dy, dz] and evaluate finite differences for n-steps'
         )
+        spec.output('results', valid_type=Dict)
 
         # WorkChain logic
         spec.outline(
             cls.setup,
             cls.run_test,
-            cls.display_results
+            cls.get_results
         )
 
     def setup(self):
@@ -87,9 +87,10 @@ class CompareForcesWorkChain(WorkChain):
         '''Displaces an atom_to_perturb from initial position, according to input test test_settings.'''
 
         # local variable block
-        diff_type = self.inputs.test_settings['diff_type']      # difference type
-        steps = self.inputs.test_settings['step_sizes']         # list of step sizes
-        n = self.inputs.test_settings['n_steps'] + 1             # initial position + n-perturbations
+        diff_order = self.inputs.test_settings['diff_order']
+        diff_type = self.inputs.test_settings['diff_type']
+        steps = self.inputs.test_settings['step_sizes']
+        n = self.inputs.test_settings['n_steps'] + 1 # initial position + n-perturbations
         prefix = f'atom{self.atom}'
 
         # context variable block
@@ -99,7 +100,7 @@ class CompareForcesWorkChain(WorkChain):
         self.ctx.initial_position = self.ctx.sites[self.atom].position
 
         # central difference requires half-step increments
-        if diff_type == 'central':
+        if diff_type == 'central' and diff_order == 'first':
             n *= 2
             step = sum([(dh/2) ** 2 for dh in steps]) ** 0.5
         else:
@@ -112,50 +113,22 @@ class CompareForcesWorkChain(WorkChain):
             env_chain = self.submit(EnvPwBaseWorkChain, **inputs)
             self.to_context(**{chain_name: env_chain})
 
-        # FIXME WorkChain collection not needed if called_descendants method cannot be called
-        # collect the WorkChain
-        #self.ctx.environ_chain_list = []
-        #for k in range(n):
-        #    name = f'{prefix}.{self.ctx.axstr}.{k}'
-        #    self.ctx.environ_chain_list.append(self.ctx[name])
+        # collect the WorkChains
+        self.ctx.environ_chain_list = []
+        for k in range(n):
+            name = f'{prefix}.{self.ctx.axstr}.{k}'
+            self.ctx.environ_chain_list.append(self.ctx[name].pk)
 
-    def display_results(self): # quantitative (chart) & qualitative (plot)
+    def get_results(self): # quantitative (chart) & qualitative (plot)
 
         '''Compare finite difference forces against DFT forces, according to test test_settings -- needs testing'''
 
-        diff_type = self.inputs.test_settings['diff_type']
-        diff_order = self.inputs.test_settings['diff_order']
-        step_sizes = self.inputs.test_settings['step_sizes']
-        step = sum([dh ** 2 for dh in step_sizes]) ** 0.5 # same for all difference types
-        n = self.inputs.test_settings['n_steps']
-
-        # FIXME collect last CalcJob of descendant EnvBaseWorkChains into a list, to pass to calcfxn
-        # get converged CalcJobs pks from WorkChain descendants
-        #calc_list = []
-        #for chain in self.ctx.environ_chain_list:
-        #    calc_list.append(chain.called_descendants[-1].pk)
-
         results = calculate_finite_differences(
-            #List(list=calc_list), # FIXME passes list of CalcJob pks
-            Int(n),
-            Float(step),
-            Str(diff_type),
-            Str(diff_order)
+            List(list=self.ctx.environ_chain_list),
+            self.inputs.test_settings
         )
 
-        # *** DISPLAY RESULTS ***
-
-        print()
-        print('atom number  = {}'.format(self.atom))
-        print('d{}           = {:.2f}'.format('x', step_sizes[0]))
-        print('d{}           = {:.2f}'.format('y', step_sizes[1]))
-        print('d{}           = {:.2f}'.format('z', step_sizes[2]))
-        print('difference   = {}-order {}'.format(diff_order, diff_type))
-        #print(f'environ     = {use_environ}')
-        #print(f'doublecell  = {double_cell}')
-        print()
-
-        print(pandas.DataFrame(data=results.attributes))
+        self.out('results', results)
 
     def _prepare_inputs(self, i: int, dr: float) -> dict:
         """Returns input dictionary ready for Process submission"""
@@ -343,8 +316,7 @@ class CompareForcesWorkChain(WorkChain):
         if not isinstance(n, int):
             raise Exception('\nn_steps must be an int')
 
-        # TODO validate minimum number of calcs for second diff_order finite difference
-        order = self.inputs.test_settings['diff_order']
-        if order == 'second' and n < 2:
-            print('\nMininum 2 steps required for second-order differentiation. Setting n_steps = 2')
-            self.inputs.test_settings['n_steps'] = 2
+        diff_order = self.inputs.test_settings['diff_order']
+
+        if diff_order == 'second' and n < 2:
+            raise Exception('\nMininum 2 steps required for second-order forward/backward finite differences. Setting n_steps = 2')
