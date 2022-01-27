@@ -253,8 +253,7 @@ class CompareForcesWorkChain(WorkChain):
         if group in qb.all(flat=True):
             upf = load_group(group)
         else:
-            print(f"\n{group} is not in aiida-pseudo families")
-            upf = load_group('SSSP/1.1/PBE/efficiency')
+            raise Exception(f"\n{group} is not in aiida-pseudo families")
 
         self.ctx.pseudos = upf.get_pseudos(structure=self.inputs.structure)
 
@@ -271,8 +270,7 @@ class CompareForcesWorkChain(WorkChain):
         if type_str in self.types:
             self.inputs.test_settings.diff_type = type_str        
         else:
-            print(f'\n{type_str} is not valid. Setting to central difference interpolation')
-            self.inputs.test_settings.diff_type = 'central'
+            raise Exception(f'\n{type_str} is not valid.')
 
     def _validate_diff_order(self):
         """Validates finite difference order input."""
@@ -286,8 +284,7 @@ class CompareForcesWorkChain(WorkChain):
         if ord_str in self.orders:
             self.inputs.test_settings.diff_order = ord_str
         else:
-            print(f'{ord_str} is not valid. Setting to first-order finite difference')
-            self.inputs.test_settings.diff_order = 'first'
+            raise Exception(f'{ord_str} is not valid')
 
     def _validate_step_sizes(self):
         """Validates step size inputs."""
@@ -312,9 +309,7 @@ class CompareForcesWorkChain(WorkChain):
                 if step != 0.0: direction = steplist.index(step)
             self.ctx.axstr = self.axes[direction]
         elif steplist.count(0.0) == 3: # set default for garbage input
-            print('\nStep size in every direction is 0. Setting to dx = 0.1')
-            self.inputs.test_settings['step_sizes'] = [0.01, 0.0, 0.0]
-            self.ctx.axstr = 'x'
+            raise Exception('\nStep size in every direction is 0.0')
         else:
             self.ctx.axstr = 'r'
 
@@ -329,7 +324,7 @@ class CompareForcesWorkChain(WorkChain):
 
         # magnitude validation
         if atom < 0 or atom > nat:
-            raise Exception('\nAtom index must be greater than zero and less than number of atoms. Setting to first atom')
+            raise Exception('\nAtom index must be greater than zero and less than number of atoms.')
 
         self.atom = atom - 1
 
@@ -343,4 +338,4 @@ class CompareForcesWorkChain(WorkChain):
         # magnitude validation
         diff_order = self.inputs.test_settings['diff_order']
         if diff_order == 'second' and n < 2:
-            raise Exception('\nMininum 2 steps required for second-order forward/backward finite differences. Setting n_steps = 2')
+            raise Exception('\nMininum 2 steps required for second-order forward/backward finite differences.')
