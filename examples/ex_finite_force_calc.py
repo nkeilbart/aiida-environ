@@ -4,7 +4,7 @@ from aiida.orm import load_node, List
 
 # TODO query for CompareForcesWorkChain
 
-ParentChain = load_node(4100)
+ParentChain = load_node() # FIXME need to select a CompareForcesWorkChain node
 BaseChains = [chain.pk for chain in ParentChain.called[:-1]]
 
 results = calculate_finite_differences(

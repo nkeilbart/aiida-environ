@@ -8,7 +8,7 @@ from aiida_pseudo.groups.family.pseudo import PseudoPotentialFamily
 import random
 
 def _build_default_structure() -> StructureData:
-        """Returns default StructureData - 2 Si atoms"""
+        """Returns default StructureData if input structure is None."""
 
         # aiida-qe test structure - aiida-quantumespresso/tests/calculations/test_pw/test_default_pw.in
 
@@ -19,24 +19,45 @@ def _build_default_structure() -> StructureData:
 
         return structure
 
+def _get_default_settings() -> Dict:
+    """Returns default Dict if input test_settings is None."""
+
+    defaults = Dict(dict={
+        'diff_type': 'central',
+        'diff_order': 'first', # center worked
+        'atom_to_perturb': 1,
+        'n_steps': 1,
+        'step_sizes': [0.01, 0.00, 0.00]
+    })
+
+    return defaults
+
 
 class CompareForcesWorkChain(WorkChain): 
-    """WorkChain to evaluate EnvPwBaseWorkChain forces against finite difference forces"""
+    """
+    WorkChain to evaluate EnvPwBaseWorkChain forces against finite difference forces.
+    
+    Inputs:
+    EnvPwBaseWorkChain inputs:  aiida.orm.Dict
+    structure:                  aiida.orm.StructureData
+    pseudo_group:               aiida.orm.Str
+    test_settings:              aiida.orm.Dict
+
+    Outputs:
+    results:                    aiida.orm.Dict
+    """
 
     types = ('forward', 'backward', 'central')  # finite difference type tuple
     orders = ('first', 'second')                # finite difference order tuple
     axes = ('x', 'y', 'z')                      # axis tuple
 
     @classmethod
-    def define(cls, spec) -> None:
-        """I/O specifications & WorkChain outline"""
+    def define(cls, spec) -> Dict:
+        """I/O specifications & WorkChain outline."""
         
         super().define(spec)
 
-        # Input validation
-        spec.expose_inputs(
-            EnvPwBaseWorkChain,
-            namespace='base',
+        spec.expose_inputs(EnvPwBaseWorkChain, namespace='base',
             namespace_options={
                 'help': 'Inputs for the `FiniteForcesWorkChain`.'
             },
@@ -44,15 +65,11 @@ class CompareForcesWorkChain(WorkChain):
         )
         spec.input('structure', valid_type=StructureData, default=lambda: _build_default_structure())
         spec.input('pseudo_group', valid_type=Str, default=lambda: Str('SSSP/1.1/PBE/efficiency'), help='aiida-pseudo family string')
-        spec.input(
-            'test_settings',
-            valid_type=Dict,
-            required=True,
+        spec.input('test_settings',valid_type=Dict, default=lambda: _get_default_settings(),
             help='Force test settings to increment atom_to_perturb by dr based on step_sizes [dx, dy, dz] and evaluate finite differences for n-steps'
         )
         spec.output('results', valid_type=Dict)
 
-        # WorkChain logic
         spec.outline(
             cls.setup,
             cls.run_test,
@@ -60,7 +77,7 @@ class CompareForcesWorkChain(WorkChain):
         )
 
     def setup(self):
-        '''Setup default structure & parameters for testing.'''
+        '''Validates inputs and initializes needed attributes.'''
 
         natoms = len(self.inputs.structure.sites)  # nat for random
         wild = random.randint(1, natoms)           # random index
@@ -84,7 +101,7 @@ class CompareForcesWorkChain(WorkChain):
         self.inputs.test_settings = Dict(dict=settings_dict)
 
     def run_test(self):
-        '''Displaces an atom_to_perturb from initial position, according to input test test_settings.'''
+        """Calculates energy and total force for selected atom at initial position and perturbed positions."""
 
         # local variable block
         diff_order = self.inputs.test_settings['diff_order']
@@ -119,9 +136,16 @@ class CompareForcesWorkChain(WorkChain):
             name = f'{prefix}.{self.ctx.axstr}.{k}'
             self.ctx.environ_chain_list.append(self.ctx[name].pk)
 
-    def get_results(self): # quantitative (chart) & qualitative (plot)
+    def get_results(self):
 
-        '''Compare finite difference forces against DFT forces, according to test test_settings -- needs testing'''
+        """
+        Calculates finite differences and returns results Dict for comparison.
+        
+        Initial position:   energy & total force
+        Environ energies:   DFT energies for finite differences
+        Environ forces:     DFT total forces for comparison
+        Delta:              DFT forces v. finite difference forces
+        """
 
         results = calculate_finite_differences(
             List(list=self.ctx.environ_chain_list),
@@ -131,7 +155,7 @@ class CompareForcesWorkChain(WorkChain):
         self.out('results', results)
 
     def _prepare_inputs(self, i: int, dr: float) -> dict:
-        """Returns input dictionary ready for Process submission"""
+        """Returns dictionary of inputs ready for Process submission."""
 
         if i == 0:
             which = 'Initial'
@@ -176,7 +200,7 @@ class CompareForcesWorkChain(WorkChain):
         return inputs
 
     def _perturb_atom(self, i: int, steps: list) -> StructureData:
-        """Returns StructureData with updated position"""
+        """Returns StructureData with updated position."""
     
         new_position = [0., 0., 0.]
 
@@ -197,7 +221,7 @@ class CompareForcesWorkChain(WorkChain):
 
         new_structure = StructureData(cell=self.ctx.cell) # NEW STRUCTURE HAS 
 
-        # TODO index existing StructureData for one-to-one Site replacement?
+        # TODO index existing StructureData for one-to-one Site replacement? or use array?
         for k in range(len(self.ctx.sites)):
 
             if k == self.atom:
@@ -215,7 +239,7 @@ class CompareForcesWorkChain(WorkChain):
         return new_structure
 
     def _validate_pseudo_group(self):
-        """Validates pseudopotential family input"""
+        """Validates pseudopotential family input."""
         
         qb = QueryBuilder()
         qb.append(
@@ -235,7 +259,7 @@ class CompareForcesWorkChain(WorkChain):
         self.ctx.pseudos = upf.get_pseudos(structure=self.inputs.structure)
 
     def _validate_diff_type(self):
-        """Validate finite difference type input"""
+        """Validate finite difference type input."""
 
         type_str = self.inputs.test_settings['diff_type']
 
@@ -251,7 +275,7 @@ class CompareForcesWorkChain(WorkChain):
             self.inputs.test_settings.diff_type = 'central'
 
     def _validate_diff_order(self):
-        """Validates finite difference order input"""
+        """Validates finite difference order input."""
 
         ord_str = self.inputs.test_settings['diff_order']
 
@@ -266,7 +290,7 @@ class CompareForcesWorkChain(WorkChain):
             self.inputs.test_settings.diff_order = 'first'
 
     def _validate_step_sizes(self):
-        """Validates step size input"""
+        """Validates step size inputs."""
 
         steplist = self.inputs.test_settings['step_sizes']
 
@@ -295,7 +319,7 @@ class CompareForcesWorkChain(WorkChain):
             self.ctx.axstr = 'r'
 
     def _validate_atom_to_perturb(self, nat):
-        """Validates atom index input"""
+        """Validates atom index input."""
 
         atom = self.inputs.test_settings['atom_to_perturb']
 
@@ -310,13 +334,13 @@ class CompareForcesWorkChain(WorkChain):
         self.atom = atom - 1
 
     def _validate_n_steps(self, n):
-        """Validates total number of steps input"""
+        """Validates total number of steps input."""
 
         # type validation
         if not isinstance(n, int):
             raise Exception('\nn_steps must be an int')
 
+        # magnitude validation
         diff_order = self.inputs.test_settings['diff_order']
-
         if diff_order == 'second' and n < 2:
             raise Exception('\nMininum 2 steps required for second-order forward/backward finite differences. Setting n_steps = 2')

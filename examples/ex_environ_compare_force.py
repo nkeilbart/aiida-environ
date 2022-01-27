@@ -1,5 +1,4 @@
-#from aiida.orm.nodes.data.upf import get_pseudos_from_structure # TO BE DEPRECATED - CONVENTION WILL BE USING AIIDA-PSEUDO PLUGIN
-from aiida.orm.utils import load_code, load_group
+from aiida.orm.utils import load_code
 from aiida.engine import submit
 from aiida import load_profile
 from aiida.orm import Dict, Str
@@ -16,7 +15,7 @@ inputs = {
     'pseudo_group': Str('SSSP/1.1/PBE/efficiency'),
     'test_settings': Dict(dict={
         'diff_type': 'central',
-        'diff_order': 'first', # center worked
+        'diff_order': 'second',
         'atom_to_perturb': 2,
         'n_steps': 3,
         'step_sizes': [0.01, 0.00, 0.01]
