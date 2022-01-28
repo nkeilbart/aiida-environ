@@ -1,7 +1,7 @@
-from aiida.orm import StructureData, QueryBuilder, Dict, List, Float, Str, load_group
+from aiida.orm import StructureData, QueryBuilder, Dict, List, Str, load_group
 from aiida.engine import WorkChain
 
-from aiida_environ.calculations.energy_differentiate import calculate_finite_differences
+from aiida_environ.calculations.finite import calculate_finite_differences
 from aiida_environ.workflows.pw.base import EnvPwBaseWorkChain
 from aiida_pseudo.groups.family.pseudo import PseudoPotentialFamily
 
@@ -33,7 +33,7 @@ def _get_default_settings() -> Dict:
     return defaults
 
 
-class CompareForcesWorkChain(WorkChain): 
+class EnvPwForceTestWorkChain(WorkChain): 
     """
     WorkChain to evaluate EnvPwBaseWorkChain forces against finite difference forces.
     

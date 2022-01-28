@@ -1,21 +1,20 @@
-from numpy import disp
-from aiida_environ.workflows.pw.base import EnvPwBaseWorkChain
-
 from aiida.orm import Dict, List, Bool, load_node
 from aiida.engine import calcfunction
 
 import pandas
 
-def setup(pks, dh, environ=True):
+def _setup(pks, dh, environ=True):
     """Returns initial position data and initializes global variables."""
 
     global N
     global STEP
     global SCALARS
     global DERIVATIVES
+    global SECOND_DERIVATIVES
 
     N = len(pks)
     STEP = dh
+    SECOND_DERIVATIVES = []
 
     # TODO would like to use base workchain output, but energy, force precision is slightly different
     # WorkChain.outputs.output_trajectory.get_array('energy')[0]
@@ -23,11 +22,7 @@ def setup(pks, dh, environ=True):
 
     if environ:
 
-        calcs = []
-        for pk in pks:
-            last_calc_of_chain = load_node(pk).called_descendants[-1]
-            calcs.append(last_calc_of_chain)
-
+        calcs = [load_node(pk).called_descendants[-1] for pk in pks]
         SCALARS = [calc.res.energy for calc in calcs]
         DERIVATIVES = [calc.res.total_force for calc in calcs]
 
@@ -43,11 +38,15 @@ def _calculate_first_order_difference(two_scalars: tuple, one_derivative: float)
     dE = (two_scalars[1] - two_scalars[0]) / STEP
     return dE, abs(dE - one_derivative)
 
-def _calculate_second_order_difference(three_scalars: tuple, two_derivatives: tuple):
+def _calculate_second_order_difference(three_scalars: tuple, two_derivatives: tuple, central: bool=False):
     """Returns second-order finite difference & compares to force difference."""
 
     d2E = (three_scalars[2] - 2*three_scalars[1] + three_scalars[0]) / STEP**2
-    dF = (two_derivatives[1] - two_derivatives[0]) / STEP
+
+    if central:
+        dF = (two_derivatives[1] - two_derivatives[0]) / (4*STEP)
+    else:
+        dF = (two_derivatives[1] - two_derivatives[0]) / (2*STEP)
 
     SECOND_DERIVATIVES.append(dF)
 
@@ -66,8 +65,9 @@ def _calculate_central_difference(i, order):
                     ),
                     two_derivatives=(
                         DERIVATIVES[i-1],
-                        DERIVATIVES[i+1]
-                    )
+                        DERIVATIVES[i+1],
+                    ),
+                    central=True
                 )
 
     return _calculate_first_order_difference(
@@ -156,9 +156,10 @@ def _display_results(params, exact_derivatives, finite_differences, deltas, envi
         data=display,
         index=[i for i in range(1, len(finite_differences)+1)])
     )
+    print()
 
 @calcfunction
-def calculate_finite_differences(pk_list: List, test_settings: Dict, environ: Bool=True) -> Dict:
+def calculate_finite_differences(pk_list: List, test_settings: Dict, environ: Bool=lambda: Bool(True)) -> Dict:
     """
     Returns finite differences for a PK list and test settings.
     
@@ -172,15 +173,10 @@ def calculate_finite_differences(pk_list: List, test_settings: Dict, environ: Bo
     """
 
     settings = test_settings.get_dict()
-
-    dr = sum([component**2 for component in settings['step_sizes']]) ** 0.5
     diff_type = settings['diff_type']
     diff_order = settings['diff_order']
-    initial = setup(pk_list.get_list(), dr, environ.value)
-
-    if diff_order == 'second':
-        global SECOND_DERIVATIVES
-        SECOND_DERIVATIVES = []
+    dr = sum([component**2 for component in settings['step_sizes']]) ** 0.5
+    initial = _setup(pk_list.get_list(), dr, environ.value)
 
     finite_differences = []
     deltas = []
@@ -217,7 +213,7 @@ def calculate_finite_differences(pk_list: List, test_settings: Dict, environ: Bo
                 finite_differences.append(df)
                 deltas.append(delta)
 
-    # *** DISPLAY & RETURN RESULTS ***
+    # *** FORMAT & RETURN RESULTS ***
     
     output_scalars, output_derivatives = _format_results(diff_type, diff_order)
 

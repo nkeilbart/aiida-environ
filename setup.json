@@ -10,7 +10,7 @@
     "entry_points": {
         "aiida.calculations": [
             "environ.pw = aiida_environ.calculations.pw:EnvPwCalculation",
-            "environ.differentiate = aiida_environ.calculations.energy_differentiate:calculate_finite_differences"
+            "environ.finite = aiida_environ.calculations.finite:calculate_finite_differences"
         ],
         "aiida.data": [
             "environ.charges = aiida_environ.data.charge:EnvironChargeData"
@@ -25,7 +25,7 @@
             "environ.pw.parameterization = aiida_environ.workflows.pw.parameterization:ParameterizationWorkChain",
             "environ.pw.graphml = aiida_environ.workflows.pw.graphml:AdsorbateGraphConfiguration",
             "environ.pw.grandcanonical = aiida_environ.workflows.pw.grandcanonical:AdsorbateGrandCanonical",
-            "environ.pw.compare_forces = aiida_environ.workflows.pw.compare_forces:CompareForcesWorkChain"
+            "environ.pw.force_test = aiida_environ.workflows.pw.force_test:EnvPwForceTestWorkChain"
         ]
     },
     "extras_require": {
