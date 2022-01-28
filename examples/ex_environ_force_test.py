@@ -3,7 +3,7 @@ from aiida.engine import submit
 from aiida import load_profile
 from aiida.orm import Dict, Str
 
-from aiida_environ.workflows.pw.force_test import CompareForcesWorkChain
+from aiida_environ.workflows.pw.force_test import EnvPwForceTestWorkChain
 from aiida_quantumespresso.utils.resources import get_default_options
 
 from make_inputs import *
@@ -17,7 +17,7 @@ inputs = {
         'diff_type': 'central',
         'diff_order': 'second',
         'atom_to_perturb': 2,
-        'n_steps': 3,
+        'n_steps': 5,
         'step_sizes': [0.01, 0.00, 0.01]
     }),
     'base': {
@@ -26,7 +26,7 @@ inputs = {
             'parameters': make_simple_parameters(),
             'environ_parameters': make_simple_environ_parameters(),
             'metadata': {
-                'options': get_default_options()
+                'options': get_default_options(max_num_machines=2, with_mpi=True)
             }
         },
         'kpoints': make_simple_kpoints(),
@@ -42,5 +42,5 @@ inputs = {
     }
 }
 
-calculation = submit(CompareForcesWorkChain, **inputs)
+calculation = submit(EnvPwForceTestWorkChain, **inputs)
 print(calculation)

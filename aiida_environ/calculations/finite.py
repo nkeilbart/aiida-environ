@@ -152,11 +152,10 @@ def _display_results(params, exact_derivatives, finite_differences, deltas, envi
         "\u0394F": deltas
     }
 
-    print(pandas.DataFrame(
-        data=display,
-        index=[i for i in range(1, len(finite_differences)+1)])
-    )
-    print()
+    #print(pandas.DataFrame(
+    #    data=display,
+    #    index=[i for i in range(1, len(finite_differences)+1)])
+    #)
 
 @calcfunction
 def calculate_finite_differences(pk_list: List, test_settings: Dict, environ: Bool=lambda: Bool(True)) -> Dict:
@@ -175,6 +174,7 @@ def calculate_finite_differences(pk_list: List, test_settings: Dict, environ: Bo
     settings = test_settings.get_dict()
     diff_type = settings['diff_type']
     diff_order = settings['diff_order']
+
     dr = sum([component**2 for component in settings['step_sizes']]) ** 0.5
     initial = _setup(pk_list.get_list(), dr, environ.value)
 
@@ -189,8 +189,10 @@ def calculate_finite_differences(pk_list: List, test_settings: Dict, environ: Bo
 
             if diff_order == 'first' and i % 2 == 0:
                 df, delta = _calculate_central_difference(i, diff_order)
-            else:
+            elif diff_order == 'second':
                 df, delta = _calculate_central_difference(i, diff_order)
+            else:
+                continue
             
             finite_differences.append(df)
             deltas.append(delta)
@@ -233,7 +235,7 @@ def calculate_finite_differences(pk_list: List, test_settings: Dict, environ: Bo
                     "Scalars": output_scalars,
                     "Exact derivatives": output_derivatives,
                     "Finite differences": finite_differences,
-                    "Delta": deltas
+                    "Deltas": deltas
                 })
 
     return data
