@@ -139,6 +139,8 @@ cython_debug/
 
 # project folders to ignore
 # for now ignore examples folder
+aiida_environ/examples/ex_environ_force_test.py
+aiida_environ/examples/ex_finite_difference_calc.py
 aiida_environ/tests/
 examples/submit_test/
 usertests/
