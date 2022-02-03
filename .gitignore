@@ -144,3 +144,12 @@ examples/submit_test/
 usertests/
 .vscode
 .python-version
+.flake8
+.isort.cfg
+.markdownlint.yaml
+.pyrightconfig.json
+.shellcheckrc
+.trunk/
+
+*.gv
+*.gv.*
