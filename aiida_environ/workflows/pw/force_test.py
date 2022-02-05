@@ -1,9 +1,9 @@
-from aiida.orm import StructureData, QueryBuilder, Dict, List, Str, load_group
+from aiida.orm import StructureData, Dict, List, Str
 from aiida.engine import WorkChain
 
 from aiida_environ.calculations.finite import calculate_finite_differences
 from aiida_environ.workflows.pw.base import EnvPwBaseWorkChain
-from aiida_pseudo.groups.family.pseudo import PseudoPotentialFamily
+from aiida_environ.utils.validate import validate_pseudo_group
 
 import random
 
@@ -240,22 +240,9 @@ class EnvPwForceTestWorkChain(WorkChain):
 
     def _validate_pseudo_group(self):
         """Validates pseudopotential family input."""
-        
-        qb = QueryBuilder()
-        qb.append(
-            PseudoPotentialFamily,
-            project='label'
-        )
 
-        group = self.inputs.pseudo_group.value
-
-        # pseudo family validation
-        if group in qb.all(flat=True):
-            upf = load_group(group)
-        else:
-            raise Exception(f"\n{group} is not in aiida-pseudo families")
-
-        self.ctx.pseudos = upf.get_pseudos(structure=self.inputs.structure)
+        upf = validate_pseudo_group(self.inputs.pseudo_group.value)
+        self.ctx.pseudos = upf.get_pseudos(structure=self.inputs.structure)        
 
     def _validate_diff_type(self):
         """Validate finite difference type input."""

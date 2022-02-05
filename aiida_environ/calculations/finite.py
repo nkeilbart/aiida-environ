@@ -1,8 +1,6 @@
 from aiida.orm import Dict, List, Bool, load_node
 from aiida.engine import calcfunction
 
-import pandas
-
 def _setup(pks, dh, environ=True):
     """Returns initial position data and initializes global variables."""
 
@@ -143,19 +141,14 @@ def _display_results(params, exact_derivatives, finite_differences, deltas, envi
     print('d{}           = {:.2f}'.format('y', params['step_sizes'][1]))
     print('d{}           = {:.2f}'.format('z', params['step_sizes'][2]))
     print('Environ      = {}'.format(environ))
-    #print('doublecell  = {}'.format(double_cell))
+    # print('doublecell  = {}'.format(double_cell))
     print()
 
-    display = {
-        "Environ": exact_derivatives,
-        "Finite": finite_differences,
-        "\u0394F": deltas
-    }
-
-    #print(pandas.DataFrame(
-    #    data=display,
-    #    index=[i for i in range(1, len(finite_differences)+1)])
-    #)
+    # display = {
+    #     "Environ": exact_derivatives,
+    #     "Finite": finite_differences,
+    #     "\u0394F": deltas
+    # }
 
 @calcfunction
 def calculate_finite_differences(pk_list: List, test_settings: Dict, environ: Bool=lambda: Bool(True)) -> Dict:
