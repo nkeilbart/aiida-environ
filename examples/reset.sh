@@ -1,4 +1,4 @@
 #!/bin/bash
-pip install --use-feature=in-tree-build --no-deps ../
+pip install --no-deps ../
 reentry scan
 verdi daemon restart

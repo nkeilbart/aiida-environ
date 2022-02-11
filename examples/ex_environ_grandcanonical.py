@@ -8,12 +8,13 @@ from aiida.orm.utils import load_code
 from aiida_quantumespresso.utils.resources import get_default_options
 from make_inputs import make_simple_kpoints
 
-from aiida_environ.workflows.pw.grandcanonical import AdsorbateGrandCanonical
+from aiida.plugins import WorkflowFactory
 
 # Once this runs right, just comment out dicts and load_node
 # try loading aiida-environ, everything stored as nodes already
 code = load_code(357)
-builder = AdsorbateGrandCanonical.get_builder()
+workflow = WorkflowFactory("environ.pw.grandcanonical")
+builder = workflow.get_builder()
 builder.metadata.label = "environ example"
 builder.metadata.description = "environ.pw grand canonical"
 builder.metadata.options = get_default_options()

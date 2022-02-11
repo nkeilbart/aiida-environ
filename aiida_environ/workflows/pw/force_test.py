@@ -2,25 +2,11 @@
 import random
 
 from aiida.engine import WorkChain
-from aiida.orm import Dict, List, Str, StructureData
+from aiida.orm import Dict, List, StructureData
 
 from aiida_environ.calculations.finite import calculate_finite_differences
-from aiida_environ.utils.validate import validate_pseudo_group
+
 from aiida_environ.workflows.pw.base import EnvPwBaseWorkChain
-
-
-def _build_default_structure() -> StructureData:
-    """Returns default StructureData if input structure is None."""
-
-    # aiida-qe test structure - aiida-quantumespresso/tests/calculations/test_pw/test_default_pw.in
-
-    structure = StructureData(
-        cell=[[2.715, 0, 2.715], [0, 2.715, 2.715], [2.715, 2.715, 0]]
-    )
-    structure.append_atom(position=(0.0, 0.0, 0.0), symbols="Si", name="Si")
-    structure.append_atom(position=(1.3575, 1.3575, 1.3575), symbols="Si", name="Si")
-
-    return structure
 
 
 def _get_default_settings() -> Dict:
@@ -43,10 +29,12 @@ class EnvPwForceTestWorkChain(WorkChain):
     """
     WorkChain to evaluate EnvPwBaseWorkChain forces against finite difference forces.
 
+    # TODO consider rewriting the run_test in line with other workflows (so setup with
+    # AttributeDict, and store calcs consistently)
+
     Inputs:
     EnvPwBaseWorkChain inputs:  aiida.orm.Dict
     structure:                  aiida.orm.StructureData
-    pseudo_group:               aiida.orm.Str
     test_settings:              aiida.orm.Dict
 
     Outputs:
@@ -58,7 +46,7 @@ class EnvPwForceTestWorkChain(WorkChain):
     axes = ("x", "y", "z")  # axis tuple
 
     @classmethod
-    def define(cls, spec) -> Dict:
+    def define(cls, spec):
         """I/O specifications & WorkChain outline."""
 
         super().define(spec)
@@ -67,22 +55,9 @@ class EnvPwForceTestWorkChain(WorkChain):
             EnvPwBaseWorkChain,
             namespace="base",
             namespace_options={"help": "Inputs for the `FiniteForcesWorkChain`."},
-            exclude=(
-                "pw.structure",
-                "pw.pseudos",
-            ),
+            exclude=("pw.structure",),
         )
-        spec.input(
-            "structure",
-            valid_type=StructureData,
-            default=lambda: _build_default_structure(),
-        )
-        spec.input(
-            "pseudo_group",
-            valid_type=Str,
-            default=lambda: Str("SSSP/1.1/PBE/efficiency"),
-            help="aiida-pseudo family string",
-        )
+        spec.input("structure", valid_type=StructureData)
         spec.input(
             "test_settings",
             valid_type=Dict,
@@ -91,7 +66,11 @@ class EnvPwForceTestWorkChain(WorkChain):
         )
         spec.output("results", valid_type=Dict)
 
-        spec.outline(cls.setup, cls.run_test, cls.get_results)
+        spec.outline(
+            cls.setup,
+            cls.run_test,
+            cls.get_results,
+        )
 
     def setup(self):
         """Validates inputs and initializes needed attributes."""
@@ -108,7 +87,6 @@ class EnvPwForceTestWorkChain(WorkChain):
         settings_dict.setdefault("step_sizes", [0.1, 0.0, 0.0])
 
         # validate inputs
-        self._validate_pseudo_group()
         self._validate_diff_type()
         self._validate_diff_order()
         self._validate_atom_to_perturb(natoms)
@@ -140,7 +118,7 @@ class EnvPwForceTestWorkChain(WorkChain):
             n *= 2
             step = sum([(dh / 2) ** 2 for dh in steps]) ** 0.5
         else:
-            step = sum([dh ** 2 for dh in steps]) ** 0.5
+            step = sum([dh**2 for dh in steps]) ** 0.5
 
         # submit calculations
         for i in range(n):
@@ -180,12 +158,10 @@ class EnvPwForceTestWorkChain(WorkChain):
         else:
             which = "Perturbed"
 
-        # TODO this function only exists because passing base inputs to new submits raises exceptions with exposed inputs
-
         inputs = {
             "pw": {
                 "code": self.inputs.base.pw.code,
-                "pseudos": self.ctx.pseudos,
+                "pseudos": self.inputs.base.pw.pseudos,
                 "parameters": self.inputs.base.pw.parameters,
                 "environ_parameters": self.inputs.base.pw.environ_parameters,
                 "metadata": {
@@ -197,12 +173,7 @@ class EnvPwForceTestWorkChain(WorkChain):
             "metadata": {
                 "description": f"{which} structure | Atom {self.atom+1} d{self.ctx.axstr} = {dr:.2f}",
             },
-            "kpoints": self.inputs.base.kpoints
-            #'automatic_parallelization': {
-            #    'max_wallclock_seconds': 1800,
-            #    'target_time_seconds': 600
-            #    'max_num_machines': 2
-            # }
+            "kpoints": self.inputs.base.kpoints,
         }
 
         if i == 0:
@@ -253,12 +224,6 @@ class EnvPwForceTestWorkChain(WorkChain):
                 )
 
         return new_structure
-
-    def _validate_pseudo_group(self):
-        """Validates pseudopotential family input."""
-
-        upf = validate_pseudo_group(self.inputs.pseudo_group.value)
-        self.ctx.pseudos = upf.get_pseudos(structure=self.inputs.structure)
 
     def _validate_diff_type(self):
         """Validate finite difference type input."""
