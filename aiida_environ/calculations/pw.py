@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
 from aiida import orm
-from aiida.common.folders import Folder
 from aiida.common.datastructures import CalcInfo
+from aiida.common.folders import Folder
 from aiida.engine import CalcJobProcessSpec
-
+from aiida_quantumespresso.calculations import (
+    BasePwCpInputGenerator,
+    _lowercase_dict,
+    _uppercase_dict,
+)
 from aiida_quantumespresso.calculations.pw import PwCalculation
-from aiida_quantumespresso.calculations import BasePwCpInputGenerator, _lowercase_dict, _uppercase_dict
 from aiida_quantumespresso.utils.convert import convert_input_to_namelist_entry
 
 from aiida_environ.data.charge import EnvironChargeData
+
 
 class EnvPwCalculation(PwCalculation):
     """`CalcJob` implementation for the pw.x code of Quantum ESPRESSO + Environ."""

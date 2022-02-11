@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 def get_struct_bounds(structure, axis):
     axis -= 1
     lbound = float("inf")
@@ -6,7 +7,5 @@ def get_struct_bounds(structure, axis):
         position = site.position[axis]
         lbound = min(lbound, position)
         ubound = max(lbound, position)
-    
+
     return (lbound, ubound)
-
-

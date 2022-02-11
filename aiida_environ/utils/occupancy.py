@@ -1,5 +1,7 @@
-from typing import List
+# -*- coding: utf-8 -*-
 from copy import deepcopy
+from typing import List
+
 
 class Occupancy:
     def __init__(self, pps: List, aps: List):
@@ -13,13 +15,13 @@ class Occupancy:
             self.configuration.append(inner_configuration)
         # hack to enforce initial iterable
         self.configuration[-1][-1] = -1
-        
+
     def __str__(self):
         return self.configuration.__str__()
 
     def __repr__(self):
         return self.configuration.__repr__()
-    
+
     def __iter__(self):
         return self
 
@@ -45,7 +47,7 @@ class Occupancy:
                 i -= 1
                 if i < 0:
                     return None
-    
+
     def __next__(self):
         i = len(self.configuration)
         while True:

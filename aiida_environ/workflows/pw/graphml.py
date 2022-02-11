@@ -1,13 +1,16 @@
-from aiida.engine import WorkChain, ToContext, append_
-from aiida.plugins import WorkflowFactory
+# -*- coding: utf-8 -*-
 from aiida.common import AttributeDict
-from aiida.orm import StructureData, List, Str
+from aiida.engine import ToContext, WorkChain
+from aiida.orm import List, Str, StructureData
 from aiida.orm.nodes.data.upf import get_pseudos_from_structure
-from aiida_environ.calculations.adsorbate.gen_multitype import adsorbate_gen_multitype
-from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 from aiida.orm.utils import load_node
+from aiida.plugins import WorkflowFactory
+from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 
-EnvPwBaseWorkChain = WorkflowFactory('environ.pw.base')
+from aiida_environ.calculations.adsorbate.gen_multitype import adsorbate_gen_multitype
+
+EnvPwBaseWorkChain = WorkflowFactory("environ.pw.base")
+
 
 class AdsorbateGraphConfiguration(WorkChain):
     """WorkChain that generates simulations for maximally connected adsorbate configurations.
@@ -22,7 +25,7 @@ class AdsorbateGraphConfiguration(WorkChain):
     Currently adsorbates can only be single atomic species defined by strings. Ideally these would be
     replaced by `StructureData`
 
-    Example: 
+    Example:
         adsorbate_sites = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]
         site_index = [0, 1]
         possible_adsorbates = ['O', 'H']
@@ -31,50 +34,61 @@ class AdsorbateGraphConfiguration(WorkChain):
     # TODO post processing needs machine learning
     # TODO add more functionality for different adsorbates
     """
+
     @classmethod
     def define(cls, spec):
         super().define(spec)
-        spec.expose_inputs(EnvPwBaseWorkChain, namespace='base',
-            exclude=('clean_workdir', 'pw.structure', 'pw.pseudos', 'pw.parent_folder'),
-            namespace_options={'help': 'Inputs for the `PwBaseWorkChain`.'})
-        spec.input('adsorbate_sites', valid_type=List)
-        spec.input('site_index', valid_type=List)
-        spec.input('possible_adsorbates', valid_type=List)
-        spec.input('adsorbate_index', valid_type=List)
-        spec.input('structure', valid_type=StructureData)
-        spec.input('pseudo_label', valid_type=Str,
-            help='The label for the pseudo group stored by the user')
-        spec.outline(
-            cls.setup,
-            cls.selection, 
-            cls.simulate,
-            cls.postprocessing
+        spec.expose_inputs(
+            EnvPwBaseWorkChain,
+            namespace="base",
+            exclude=("clean_workdir", "pw.structure", "pw.pseudos", "pw.parent_folder"),
+            namespace_options={"help": "Inputs for the `PwBaseWorkChain`."},
         )
+        spec.input("adsorbate_sites", valid_type=List)
+        spec.input("site_index", valid_type=List)
+        spec.input("possible_adsorbates", valid_type=List)
+        spec.input("adsorbate_index", valid_type=List)
+        spec.input("structure", valid_type=StructureData)
+        spec.input(
+            "pseudo_label",
+            valid_type=Str,
+            help="The label for the pseudo group stored by the user",
+        )
+        spec.outline(cls.setup, cls.selection, cls.simulate, cls.postprocessing)
 
     def setup(self):
         self.ctx.struct_list = []
 
     def selection(self):
         self.ctx.struct_list = adsorbate_gen_multitype(
-            self.inputs.site_index, self.inputs.possible_adsorbates, self.inputs.adsorbate_index, self.inputs.structure, self.inputs.adsorbate_sites)   
+            self.inputs.site_index,
+            self.inputs.possible_adsorbates,
+            self.inputs.adsorbate_index,
+            self.inputs.structure,
+            self.inputs.adsorbate_sites,
+        )
 
     def simulate(self):
         calculations = {}
 
         for structure_pk in self.ctx.struct_list:
-            inputs = AttributeDict(self.exposed_inputs(EnvPwBaseWorkChain, namespace='base'))
+            inputs = AttributeDict(
+                self.exposed_inputs(EnvPwBaseWorkChain, namespace="base")
+            )
             structure = load_node(structure_pk)
-            self.report(f'{structure}')
+            self.report(f"{structure}")
             inputs.pw.structure = structure
-            inputs.pw.pseudos = get_pseudos_from_structure(structure, self.inputs.pseudo_label.value)
+            inputs.pw.pseudos = get_pseudos_from_structure(
+                structure, self.inputs.pseudo_label.value
+            )
 
             inputs = prepare_process_inputs(EnvPwBaseWorkChain, inputs)
             future = self.submit(EnvPwBaseWorkChain, **inputs)
             calculations[structure_pk] = future
 
-            self.report(f'launching PwBaseWorkChain<{future.pk}>')
+            self.report(f"launching PwBaseWorkChain<{future.pk}>")
 
         return ToContext(**calculations)
-    
+
     def postprocessing(self):
         pass

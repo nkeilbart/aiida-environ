@@ -1,4 +1,6 @@
+# -*- coding: utf-8 -*-
 from math import ceil
+
 
 def get_charge_range(cmax, cinc):
     n = int(ceil(cmax / cinc) * 2 + 1)

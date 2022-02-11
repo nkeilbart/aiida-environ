@@ -1,35 +1,37 @@
+# -*- coding: utf-8 -*-
 from aiida.engine import calcfunction
-from aiida_environ.utils.occupancy import Occupancy
-from aiida_environ.utils.graph import Graph
-from aiida.plugins import DataFactory
 from aiida.orm import List, StructureData
 
-
-StructureData = DataFactory('structure')
-List = DataFactory('list')
+from aiida_environ.utils.graph import Graph
+from aiida_environ.utils.occupancy import Occupancy
 
 
 @calcfunction
-def adsorbate_gen_multitype(site_index: List, possible_adsorbates: List, adsorbate_index: List, 
-        structure: StructureData, adsorbate_sites: List): 
+def adsorbate_gen_multitype(
+    site_index: List,
+    possible_adsorbates: List,
+    adsorbate_index: List,
+    structure: StructureData,
+    adsorbate_sites: List,
+):
     """Generate structures of maximally connected adsorbate configurations
 
     Uses a graph to connect similar adsorbate configurations. Adjacent configurations must be equivalent
     after exactly one step where one step can be either:
 
-    - Adding 
+    - Adding
 
     Args:
-        site_index          (aiida.orm.List): 
+        site_index          (aiida.orm.List):
             array of indices that describe what type of sites exist
-        possible_adsorbates (aiida.orm.List): 
+        possible_adsorbates (aiida.orm.List):
             array of adsorbates given by strings (assumes single atomic species)
             TODO: adsorbates should be arbitrarily defined structures
-        adsorbate_index     (aiida.orm.List): 
+        adsorbate_index     (aiida.orm.List):
             array of values that determine how many of each adsorbate can exist on each site type
-        structure           (aiida.orm.StructureData): 
+        structure           (aiida.orm.StructureData):
             the structure to append adsorbates onto
-        adsorbate_sites     (aiida.orm.List): 
+        adsorbate_sites     (aiida.orm.List):
             list of coordinates to position adsorbates
 
     Returns:
@@ -53,8 +55,9 @@ def adsorbate_gen_multitype(site_index: List, possible_adsorbates: List, adsorba
         struct_list.append(new_structure.pk)
 
     struct_list = List(list=struct_list)
-                    
+
     return struct_list
+
 
 def _gen_multitype(site_index: list, possible_adsorbates: list, adsorbate_index: list):
     points_per_site = [0] * (max(site_index) + 1)
@@ -63,7 +66,7 @@ def _gen_multitype(site_index: list, possible_adsorbates: list, adsorbate_index:
         points_per_site[i] += 1
     for i, site in enumerate(adsorbate_index):
         adsorbate_per_site[i] = sum(site)
-    assert len(points_per_site) == len(adsorbate_per_site)  
+    assert len(points_per_site) == len(adsorbate_per_site)
     o = Occupancy(points_per_site, adsorbate_per_site)
     g = Graph()
     # note that the current implementation clones the configuration list (deepcopy) which may get expensive but for our purposes should be fine
@@ -91,7 +94,7 @@ def _gen_multitype(site_index: list, possible_adsorbates: list, adsorbate_index:
             for y in x:
                 list2 = []
                 for z in y:
-                    if (z == 0):
+                    if z == 0:
                         list2.append(0)
                     else:
                         list2.append(possible_adsorbates[z - 1])
@@ -100,6 +103,6 @@ def _gen_multitype(site_index: list, possible_adsorbates: list, adsorbate_index:
         return ads_max_list
 
     max_list = g.get_vertices_with_connections(n_max)
-    max_list = vertices_to_labels(max_list) 
+    max_list = vertices_to_labels(max_list)
 
     return max_list

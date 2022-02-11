@@ -1,46 +1,39 @@
-from aiida.orm.utils import load_code
+# -*- coding: utf-8 -*-
 from aiida.engine import submit
-from aiida import load_profile
 from aiida.orm import Dict, Str
+from aiida.orm.utils import load_code
+from aiida_quantumespresso.utils.resources import get_default_options
+from make_inputs import (
+    make_simple_environ_parameters,
+    make_simple_kpoints,
+    make_simple_parameters,
+    make_simple_structure,
+)
 
 from aiida_environ.workflows.pw.force_test import EnvPwForceTestWorkChain
-from aiida_quantumespresso.utils.resources import get_default_options
 
-from make_inputs import *
+code = load_code(1)
+builder = EnvPwForceTestWorkChain.get_builder()
+builder.metadata.label = "environ example"
+builder.metadata.description = "environ.pw force workchain"
+builder.structure = make_simple_structure()
+builder.pseudo_group = Str("SSSP/1.1/PBE/efficiency")
 
-load_profile()
-
-inputs = {
-    'structure': make_simple_structure(),
-    'pseudo_group': Str('SSSP/1.1/PBE/efficiency'),
-    'test_settings': Dict(dict={
-        'diff_type': 'central',
-        'diff_order': 'second',
-        'atom_to_perturb': 2,
-        'n_steps': 5,
-        'step_sizes': [0.01, 0.00, 0.01]
-    }),
-    'base': {
-        'pw': {
-            'code': load_code(1),
-            'parameters': make_simple_parameters(),
-            'environ_parameters': make_simple_environ_parameters(),
-            'metadata': {
-                'options': get_default_options(max_num_machines=2, with_mpi=True)
-            }
-        },
-        'kpoints': make_simple_kpoints(),
-        #'automatic_parallelization': {
-            #    'max_wallclock_seconds': 1800,
-            #    'target_time_seconds': 600
-            #    'max_num_machines': 2
-            #}
-    },
-    'metadata': {
-        'label': "finite difference chain example w/ environ base chain",
-        'description': "environ.pw force test workchain"
+builder.test_settings = Dict(
+    dict={
+        "diff_type": "central",
+        "diff_order": "second",
+        "atom_to_perturb": 2,
+        "n_steps": 5,
+        "step_sizes": [0.01, 0.00, 0.01],
     }
-}
+)
 
-calculation = submit(EnvPwForceTestWorkChain, **inputs)
-print(calculation)
+builder.base.pw.code = code
+builder.base.pw.parameters = make_simple_parameters()
+builder.base.pw.environ_parameters = make_simple_environ_parameters()
+builder.base.pw.metadata.options = get_default_options(with_mpi=True)
+builder.base.kpoints = make_simple_kpoints()
+
+print(builder)
+calculation = submit(builder)

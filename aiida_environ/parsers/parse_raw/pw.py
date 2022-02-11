@@ -9,25 +9,29 @@ ENVIRON NOTE: These functions will overwrite the QE plugin functions and therefo
 any changes made to the original functions over here (until Environ is completely detached)
 """
 import re
-import numpy
-from qe_tools import CONSTANTS
 
 from aiida_quantumespresso.parsers import QEOutputParsingError
-from aiida_quantumespresso.parsers.parse_raw.pw import grep_energy_from_line, detect_important_message
 from aiida_quantumespresso.parsers.parse_raw import convert_qe_time_to_sec
+from aiida_quantumespresso.parsers.parse_raw.pw import (
+    detect_important_message,
+    grep_energy_from_line,
+)
+from qe_tools import CONSTANTS
+
 from aiida_environ.utils.mapping import get_logging_container
 
-lattice_tolerance = 1.e-5
-units_suffix = '_units'
-default_charge_units = 'e'
-default_dipole_units = 'Debye'
-default_energy_units = 'eV'
-default_force_units = 'ev / angstrom'
-default_k_points_units = '1 / angstrom'
-default_length_units = 'Angstrom'
-default_magnetization_units = 'Bohrmag / cell'
-default_polarization_units = 'C / m^2'
-default_stress_units = 'GPascal'
+lattice_tolerance = 1.0e-5
+units_suffix = "_units"
+default_charge_units = "e"
+default_dipole_units = "Debye"
+default_energy_units = "eV"
+default_force_units = "ev / angstrom"
+default_k_points_units = "1 / angstrom"
+default_length_units = "Angstrom"
+default_magnetization_units = "Bohrmag / cell"
+default_polarization_units = "C / m^2"
+default_stress_units = "GPascal"
+
 
 def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None):
     """Parses the stdout content of a Quantum ESPRESSO `pw.x` calculation.
@@ -47,14 +51,14 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
         parsed_xml = {}
 
     # Separate the input string into separate lines
-    data_lines = stdout.split('\n')
+    data_lines = stdout.split("\n")
 
     logs = get_logging_container()
 
     parsed_data = {}
     vdw_correction = False
-    bands_data = parsed_xml.pop('bands', {})
-    structure_data = parsed_xml.pop('structure', {})
+    bands_data = parsed_xml.pop("bands", {})
+    structure_data = parsed_xml.pop("structure", {})
     trajectory_data = {}
 
     maximum_ionic_steps = None
@@ -62,80 +66,84 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
 
     # First check whether the `JOB DONE` message was written, otherwise the job was interrupted
     for line in data_lines:
-        if 'JOB DONE' in line:
+        if "JOB DONE" in line:
             break
     else:
-        logs.error.append('ERROR_OUTPUT_STDOUT_INCOMPLETE')
+        logs.error.append("ERROR_OUTPUT_STDOUT_INCOMPLETE")
 
     # Determine whether the input switched on an electric field
-    lelfield = input_parameters.get('CONTROL', {}).get('lelfield', False)
+    lelfield = input_parameters.get("CONTROL", {}).get("lelfield", False)
 
     # Find some useful quantities.
-    if not parsed_xml.get('number_of_bands', None):
+    if not parsed_xml.get("number_of_bands", None):
         try:
-            for line in stdout.split('\n'):
-                if 'lattice parameter (alat)' in line:
-                    alat = float(line.split('=')[1].split('a.u')[0])
-                elif 'number of atoms/cell' in line:
-                    nat = int(line.split('=')[1])
-                elif 'number of atomic types' in line:
-                    ntyp = int(line.split('=')[1])
-                elif 'unit-cell volume' in line:
-                    if '(a.u.)^3' in line:
-                        volume = float(line.split('=')[1].split('(a.u.)^3')[0])
+            for line in stdout.split("\n"):
+                if "lattice parameter (alat)" in line:
+                    alat = float(line.split("=")[1].split("a.u")[0])
+                elif "number of atoms/cell" in line:
+                    nat = int(line.split("=")[1])
+                elif "number of atomic types" in line:
+                    ntyp = int(line.split("=")[1])
+                elif "unit-cell volume" in line:
+                    if "(a.u.)^3" in line:
+                        volume = float(line.split("=")[1].split("(a.u.)^3")[0])
                     else:
                         # occurs in v5.3.0
-                        volume = float(line.split('=')[1].split('a.u.^3')[0])
-                elif 'number of Kohn-Sham states' in line:
-                    nbnd = int(line.split('=')[1])
-                elif 'number of k points' in line:
-                    nk = int(line.split('=')[1].split()[0])
-                    if input_parameters.get('SYSTEM', {}).get('nspin', 1) > 1:
+                        volume = float(line.split("=")[1].split("a.u.^3")[0])
+                elif "number of Kohn-Sham states" in line:
+                    nbnd = int(line.split("=")[1])
+                elif "number of k points" in line:
+                    nk = int(line.split("=")[1].split()[0])
+                    if input_parameters.get("SYSTEM", {}).get("nspin", 1) > 1:
                         # QE counts twice each k-point in spin-polarized calculations
                         nk /= 2
-                elif 'Dense  grid' in line:
-                    FFT_grid = [int(g) for g in line.split('(')[1].split(')')[0].split(',')]
-                elif 'Smooth grid' in line:
-                    smooth_FFT_grid = [int(g) for g in line.split('(')[1].split(')')[0].split(',')]
+                elif "Dense  grid" in line:
+                    FFT_grid = [
+                        int(g) for g in line.split("(")[1].split(")")[0].split(",")
+                    ]
+                elif "Smooth grid" in line:
+                    smooth_FFT_grid = [
+                        int(g) for g in line.split("(")[1].split(")")[0].split(",")
+                    ]
                     break
             alat *= CONSTANTS.bohr_to_ang
-            volume *= CONSTANTS.bohr_to_ang**3
-            parsed_data['lattice_parameter_initial'] = alat
-            parsed_data['number_of_bands'] = nbnd
+            volume *= CONSTANTS.bohr_to_ang ** 3
+            parsed_data["lattice_parameter_initial"] = alat
+            parsed_data["number_of_bands"] = nbnd
             try:
-                parsed_data['number_of_k_points'] = nk
-                parsed_data['fft_grid'] = FFT_grid
-                parsed_data['smooth_fft_grid'] = smooth_FFT_grid
+                parsed_data["number_of_k_points"] = nk
+                parsed_data["fft_grid"] = FFT_grid
+                parsed_data["smooth_fft_grid"] = smooth_FFT_grid
             except NameError:  # these are not crucial, so parsing does not fail if they are not found
                 pass
         except NameError:  # nat or other variables where not found, and thus not initialized
 
             # Try to get some error messages
-            lines = stdout.split('\n')
+            lines = stdout.split("\n")
 
             for line_number, line in enumerate(lines):
                 # Compare the line to the known set of error and warning messages and add them to the log container
                 detect_important_message(logs, line)
 
             if len(logs.error) or len(logs.warning) > 0:
-                parsed_data['trajectory'] = trajectory_data
+                parsed_data["trajectory"] = trajectory_data
                 return parsed_data, logs
 
             # did not find any error message -> raise an Error and do not return anything
-            raise QEOutputParsingError('Parser cannot load basic info.')
+            raise QEOutputParsingError("Parser cannot load basic info.")
     else:
-        nat = structure_data['number_of_atoms']
-        ntyp = structure_data['number_of_species']
-        alat = structure_data['lattice_parameter_xml']
-        volume = structure_data['cell']['volume']
+        nat = structure_data["number_of_atoms"]
+        ntyp = structure_data["number_of_species"]
+        alat = structure_data["lattice_parameter_xml"]
+        volume = structure_data["cell"]["volume"]
     # NOTE: lattice_parameter_xml is the lattice parameter of the xml file
     # in the units used by the code. lattice_parameter instead in angstroms.
 
     # Save these two quantities in the parsed_data, because they will be
     # useful for queries (maybe), and structure_data will not be stored as a Dict
-    parsed_data['number_of_atoms'] = nat
-    parsed_data['number_of_species'] = ntyp
-    parsed_data['volume'] = volume
+    parsed_data["number_of_atoms"] = nat
+    parsed_data["number_of_species"] = ntyp
+    parsed_data["volume"] = volume
 
     c_bands_error = False
 
@@ -146,101 +154,119 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
         detect_important_message(logs, line)
 
         # to be used for later
-        if 'Non-local correlation energy' in line:
+        if "Non-local correlation energy" in line:
             vdw_correction = True
 
-        elif 'Cartesian axes' in line:
+        elif "Cartesian axes" in line:
             # this is the part when initial positions and chemical
             # symbols are printed (they do not change during a run)
             i = count + 1
-            while i < count + 10 and not ('site n.' in data_lines[i] and 'atom' in data_lines[i]):
+            while i < count + 10 and not (
+                "site n." in data_lines[i] and "atom" in data_lines[i]
+            ):
                 i += 1
-            if 'site n.' in data_lines[i] and 'atom' in data_lines[i]:
-                trajectory_data['atomic_species_name'] = [data_lines[i + 1 + j].split()[1] for j in range(nat)]
+            if "site n." in data_lines[i] and "atom" in data_lines[i]:
+                trajectory_data["atomic_species_name"] = [
+                    data_lines[i + 1 + j].split()[1] for j in range(nat)
+                ]
 
         # parse the initialization time (take only first occurence)
-        elif ('init_wall_time_seconds' not in parsed_data and 'total cpu time spent up to now is' in line):
-            init_time = float(line.split('total cpu time spent up to now is')[1].split('secs')[0])
-            parsed_data['init_wall_time_seconds'] = init_time
+        elif (
+            "init_wall_time_seconds" not in parsed_data
+            and "total cpu time spent up to now is" in line
+        ):
+            init_time = float(
+                line.split("total cpu time spent up to now is")[1].split("secs")[0]
+            )
+            parsed_data["init_wall_time_seconds"] = init_time
 
         # parse dynamical RAM estimates
-        elif 'Estimated max dynamical RAM per process' in line:
-            value = line.split('>')[-1]
-            match = re.match(r'\s+([+-]?\d+(\.\d*)?|\.\d+([eE][+-]?\d+)?)\s*(Mb|MB|GB)', value)
+        elif "Estimated max dynamical RAM per process" in line:
+            value = line.split(">")[-1]
+            match = re.match(
+                r"\s+([+-]?\d+(\.\d*)?|\.\d+([eE][+-]?\d+)?)\s*(Mb|MB|GB)", value
+            )
             if match:
                 try:
-                    parsed_data['estimated_ram_per_process'] = float(match.group(1))
-                    parsed_data[f'estimated_ram_per_process{units_suffix}'] = match.group(4)
+                    parsed_data["estimated_ram_per_process"] = float(match.group(1))
+                    parsed_data[
+                        f"estimated_ram_per_process{units_suffix}"
+                    ] = match.group(4)
                 except (IndexError, ValueError):
                     pass
 
         # parse dynamical RAM estimates
-        elif 'Estimated total dynamical RAM' in line:
-            value = line.split('>')[-1]
-            match = re.match(r'\s+([+-]?\d+(\.\d*)?|\.\d+([eE][+-]?\d+)?)\s*(Mb|MB|GB)', value)
+        elif "Estimated total dynamical RAM" in line:
+            value = line.split(">")[-1]
+            match = re.match(
+                r"\s+([+-]?\d+(\.\d*)?|\.\d+([eE][+-]?\d+)?)\s*(Mb|MB|GB)", value
+            )
             if match:
                 try:
-                    parsed_data['estimated_ram_total'] = float(match.group(1))
-                    parsed_data[f'estimated_ram_total{units_suffix}'] = match.group(4)
+                    parsed_data["estimated_ram_total"] = float(match.group(1))
+                    parsed_data[f"estimated_ram_total{units_suffix}"] = match.group(4)
                 except (IndexError, ValueError):
                     pass
 
         # parse the global file, for informations that are written only once
-        elif 'PWSCF' in line and 'WALL' in line:
+        elif "PWSCF" in line and "WALL" in line:
             try:
-                time = line.split('CPU')[1].split('WALL')[0]
-                parsed_data['wall_time'] = time
+                time = line.split("CPU")[1].split("WALL")[0]
+                parsed_data["wall_time"] = time
             except Exception:
-                logs.warning.append('Error while parsing wall time.')
+                logs.warning.append("Error while parsing wall time.")
             try:
-                parsed_data['wall_time_seconds'] = convert_qe_time_to_sec(time)
+                parsed_data["wall_time_seconds"] = convert_qe_time_to_sec(time)
             except ValueError:
-                raise QEOutputParsingError('Unable to convert wall_time in seconds.')
+                raise QEOutputParsingError("Unable to convert wall_time in seconds.")
 
         # for later control on relaxation-dynamics convergence
-        elif 'nstep' in line and '=' in line:
+        elif "nstep" in line and "=" in line:
             maximum_ionic_steps = int(line.split()[2])
 
-        elif 'bfgs converged in' in line:
+        elif "bfgs converged in" in line:
             marker_bfgs_converged = True
 
-        elif 'number of bfgs steps' in line:
+        elif "number of bfgs steps" in line:
 
             try:
-                parsed_data['number_ionic_steps'] += 1
+                parsed_data["number_ionic_steps"] += 1
             except KeyError:
-                parsed_data['number_ionic_steps'] = 1
+                parsed_data["number_ionic_steps"] = 1
 
-        elif 'A final scf calculation at the relaxed structure' in line:
-            parsed_data['final_scf'] = True
+        elif "A final scf calculation at the relaxed structure" in line:
+            parsed_data["final_scf"] = True
 
-        elif 'point group' in line:
-            if 'k-point group' not in line:
+        elif "point group" in line:
+            if "k-point group" not in line:
                 try:
                     # Split line in components delimited by either space(s) or
                     # parenthesis and filter out empty strings
-                    line_elems = [_f for _f in re.split(r' +|\(|\)', line) if _f]
+                    line_elems = [_f for _f in re.split(r" +|\(|\)", line) if _f]
 
                     pg_international = line_elems[-1]
                     pg_schoenflies = line_elems[-2]
 
-                    parsed_data['pointgroup_international'] = pg_international
-                    parsed_data['pointgroup_schoenflies'] = pg_schoenflies
+                    parsed_data["pointgroup_international"] = pg_international
+                    parsed_data["pointgroup_schoenflies"] = pg_schoenflies
 
                 except Exception:
-                    warning = f'Problem parsing point group, I found: {line.strip()}'
+                    warning = f"Problem parsing point group, I found: {line.strip()}"
                     logs.warning.append(warning)
 
         # special parsing of c_bands error
-        elif 'c_bands' in line and 'eigenvalues not converged' in line:
+        elif "c_bands" in line and "eigenvalues not converged" in line:
             c_bands_error = True
 
-        elif 'iteration #' in line:
-            if 'Calculation restarted' not in line and 'Calculation stopped' not in line:
+        elif "iteration #" in line:
+            if (
+                "Calculation restarted" not in line
+                and "Calculation stopped" not in line
+            ):
                 try:
-                    parsed_data['total_number_of_scf_iterations'] += 1
+                    parsed_data["total_number_of_scf_iterations"] += 1
                 except KeyError:
-                    parsed_data['total_number_of_scf_iterations'] = 1
+                    parsed_data["total_number_of_scf_iterations"] = 1
 
             if c_bands_error:
                 # if there is another iteration, c_bands is not necessarily a problem
@@ -248,15 +274,15 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                 c_bands_error = False
 
     if c_bands_error:
-        logs.warning.append('c_bands: at least 1 eigenvalues not converged')
+        logs.warning.append("c_bands: at least 1 eigenvalues not converged")
 
     # I split the output text in the atomic SCF calculations.
     # the initial part should be things already contained in the xml.
     # (cell, initial positions, kpoints, ...) and I skip them.
     # In case, parse for them before this point.
     # Put everything in a trajectory_data dictionary
-    relax_steps = stdout.split('Self-consistent Calculation')[1:]
-    relax_steps = [i.split('\n') for i in relax_steps]
+    relax_steps = stdout.split("Self-consistent Calculation")[1:]
+    relax_steps = [i.split("\n") for i in relax_steps]
 
     # now I create a bunch of arrays for every step.
 
@@ -265,60 +291,70 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
 
         for count, line in enumerate(data_step):
 
-            if 'CELL_PARAMETERS' in line:
+            if "CELL_PARAMETERS" in line:
                 try:
                     a1 = [float(s) for s in data_step[count + 1].split()]
                     a2 = [float(s) for s in data_step[count + 2].split()]
                     a3 = [float(s) for s in data_step[count + 3].split()]
                     # try except indexerror for not enough lines
-                    lattice = line.split('(')[1].split(')')[0].split('=')
-                    if lattice[0].lower() not in ['alat', 'bohr', 'angstrom']:
+                    lattice = line.split("(")[1].split(")")[0].split("=")
+                    if lattice[0].lower() not in ["alat", "bohr", "angstrom"]:
                         raise QEOutputParsingError(
-                            f'Error while parsing cell_parameters: ' + 'unsupported units {lattice[0]}'
+                            f"Error while parsing cell_parameters: "
+                            + "unsupported units {lattice[0]}"
                         )
 
-                    if 'alat' in lattice[0].lower():
+                    if "alat" in lattice[0].lower():
                         a1 = [alat * CONSTANTS.bohr_to_ang * float(s) for s in a1]
                         a2 = [alat * CONSTANTS.bohr_to_ang * float(s) for s in a2]
                         a3 = [alat * CONSTANTS.bohr_to_ang * float(s) for s in a3]
                         lattice_parameter_b = float(lattice[1])
                         if abs(lattice_parameter_b - alat) > lattice_tolerance:
                             raise QEOutputParsingError(
-                                'Lattice parameters mismatch! ' + f'{lattice_parameter_b} vs {alat}'
+                                "Lattice parameters mismatch! "
+                                + f"{lattice_parameter_b} vs {alat}"
                             )
-                    elif 'bohr' in lattice[0].lower():
+                    elif "bohr" in lattice[0].lower():
                         lattice_parameter_b *= CONSTANTS.bohr_to_ang
                         a1 = [CONSTANTS.bohr_to_ang * float(s) for s in a1]
                         a2 = [CONSTANTS.bohr_to_ang * float(s) for s in a2]
                         a3 = [CONSTANTS.bohr_to_ang * float(s) for s in a3]
-                    trajectory_data.setdefault('lattice_vectors_relax', []).append([a1, a2, a3])
+                    trajectory_data.setdefault("lattice_vectors_relax", []).append(
+                        [a1, a2, a3]
+                    )
 
                 except Exception:
-                    logs.warning.append('Error while parsing relaxation cell parameters.')
+                    logs.warning.append(
+                        "Error while parsing relaxation cell parameters."
+                    )
 
-            elif 'ATOMIC_POSITIONS' in line:
+            elif "ATOMIC_POSITIONS" in line:
                 try:
-                    this_key = 'atomic_positions_relax'
+                    this_key = "atomic_positions_relax"
                     # the inizialization of tau prevent parsed_data to be associated
                     # to the pointer of the previous iteration
-                    metric = line.split('(')[1].split(')')[0]
-                    if metric == 'crystal':
-                        this_key = 'atomic_fractionals_relax'
-                    elif metric not in ['alat', 'bohr', 'angstrom']:
-                        raise QEOutputParsingError('Error while parsing atomic_positions: units not supported.')
+                    metric = line.split("(")[1].split(")")[0]
+                    if metric == "crystal":
+                        this_key = "atomic_fractionals_relax"
+                    elif metric not in ["alat", "bohr", "angstrom"]:
+                        raise QEOutputParsingError(
+                            "Error while parsing atomic_positions: units not supported."
+                        )
                     # TODO: check how to map the atoms in the original scheme
                     positions = []
                     for i in range(nat):
                         line2 = data_step[count + 1 + i].split()
                         tau = [float(s) for s in line2[1:4]]
-                        if metric == 'alat':
+                        if metric == "alat":
                             tau = [alat * float(s) for s in tau]
-                        elif metric == 'bohr':
+                        elif metric == "bohr":
                             tau = [CONSTANTS.bohr_to_ang * float(s) for s in tau]
                         positions.append(tau)
                     trajectory_data.setdefault(this_key, []).append(positions)
                 except Exception:
-                    logs.warning.append('Error while parsing relaxation atomic positions.')
+                    logs.warning.append(
+                        "Error while parsing relaxation atomic positions."
+                    )
 
             # NOTE: in the above, the chemical symbols are not those of AiiDA
             # since the AiiDA structure is different. So, I assume now that the
@@ -326,66 +362,69 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
 
             # Computed dipole correction in slab geometries.
             # save dipole in debye units, only at last iteration of scf cycle
-            elif 'Computed dipole along edir' in line:
+            elif "Computed dipole along edir" in line:
                 j = count + 3
                 line2 = data_step[j]
                 try:
                     units = line2.split()[-1]
                     if default_dipole_units.lower() not in units.lower():  # only debye
                         raise QEOutputParsingError(
-                            f'Error parsing the dipole correction. Units {units} are not supported.'
+                            f"Error parsing the dipole correction. Units {units} are not supported."
                         )
                     value = float(line2.split()[-2])
                 except IndexError:  # on units
                     pass
                 # save only the last dipole correction
-                while 'Computed dipole along edir' not in line2:
+                while "Computed dipole along edir" not in line2:
                     j += 1
                     try:
                         line2 = data_step[j]
                     except IndexError:  # The dipole is also written at the beginning of a new bfgs iteration
                         break
-                    if 'End of self-consistent calculation' in line2:
-                        trajectory_data.setdefault('dipole', []).append(value)
-                        parsed_data['dipole' + units_suffix] = default_dipole_units
+                    if "End of self-consistent calculation" in line2:
+                        trajectory_data.setdefault("dipole", []).append(value)
+                        parsed_data["dipole" + units_suffix] = default_dipole_units
                         break
 
             # saving the SCF convergence accuracy for each SCF cycle
             # If for some step this line is not printed, the later check with the scf_accuracy array length should catch it
-            elif 'estimated scf accuracy' in line:
+            elif "estimated scf accuracy" in line:
                 try:
                     value = float(line.split()[-2]) * CONSTANTS.ry_to_ev
-                    trajectory_data.setdefault('scf_accuracy', []).append(value)
+                    trajectory_data.setdefault("scf_accuracy", []).append(value)
                 except Exception:
-                    logs.warning.append('Error while parsing scf accuracy.')
+                    logs.warning.append("Error while parsing scf accuracy.")
 
-            elif 'convergence has been achieved in' in line or 'convergence NOT achieved after' in line:
+            elif (
+                "convergence has been achieved in" in line
+                or "convergence NOT achieved after" in line
+            ):
                 try:
-                    value = int(line.split('iterations')[0].split()[-1])
-                    trajectory_data.setdefault('scf_iterations', []).append(value)
+                    value = int(line.split("iterations")[0].split()[-1])
+                    trajectory_data.setdefault("scf_iterations", []).append(value)
                 except Exception:
-                    logs.warning.append('Error while parsing scf iterations.')
+                    logs.warning.append("Error while parsing scf iterations.")
 
-            elif 'Calculation stopped in scf loop at iteration' in line:
+            elif "Calculation stopped in scf loop at iteration" in line:
                 try:
                     value = int(line.split()[-1])
-                    trajectory_data.setdefault('scf_iterations', []).append(value)
+                    trajectory_data.setdefault("scf_iterations", []).append(value)
                 except Exception:
-                    logs.warning.append('Error while parsing scf iterations.')
+                    logs.warning.append("Error while parsing scf iterations.")
 
-            elif 'End of self-consistent calculation' in line:
+            elif "End of self-consistent calculation" in line:
                 # parse energy threshold for diagonalization algorithm
                 try:
                     j = 0
                     while True:
                         j -= 1
                         line2 = data_step[count + j]
-                        if 'ethr' in line2:
-                            value = float(line2.split('=')[1].split(',')[0])
+                        if "ethr" in line2:
+                            value = float(line2.split("=")[1].split(",")[0])
                             break
-                    trajectory_data.setdefault('energy_threshold', []).append(value)
+                    trajectory_data.setdefault("energy_threshold", []).append(value)
                 except Exception:
-                    logs.warning.append('Error while parsing ethr.')
+                    logs.warning.append("Error while parsing ethr.")
 
                 # parse final magnetic moments, if present
                 try:
@@ -393,49 +432,60 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                     while True:
                         j -= 1
                         line2 = data_step[count + j]
-                        if 'Magnetic moment per site' in line2:
+                        if "Magnetic moment per site" in line2:
                             break
-                        if 'iteration' in line2:
+                        if "iteration" in line2:
                             raise QEOutputParsingError
                     mag_moments = []
                     charges = []
                     while True:
                         j += 1
                         line2 = data_step[count + j]
-                        if 'atom:' in line2:
-                            mag_moments.append(float(line2.split('magn:')[1].split()[0]))
-                            charges.append(float(line2.split('charge:')[1].split()[0]))
+                        if "atom:" in line2:
+                            mag_moments.append(
+                                float(line2.split("magn:")[1].split()[0])
+                            )
+                            charges.append(float(line2.split("charge:")[1].split()[0]))
                         if len(mag_moments) == nat:
                             break
-                    trajectory_data.setdefault('atomic_magnetic_moments', []).append(mag_moments)
-                    trajectory_data.setdefault('atomic_charges', []).append(charges)
-                    parsed_data['atomic_magnetic_moments' + units_suffix] = default_magnetization_units
-                    parsed_data['atomic_charges' + units_suffix] = default_charge_units
+                    trajectory_data.setdefault("atomic_magnetic_moments", []).append(
+                        mag_moments
+                    )
+                    trajectory_data.setdefault("atomic_charges", []).append(charges)
+                    parsed_data[
+                        "atomic_magnetic_moments" + units_suffix
+                    ] = default_magnetization_units
+                    parsed_data["atomic_charges" + units_suffix] = default_charge_units
                 except QEOutputParsingError:
                     pass
 
             # grep energy and possibly, magnetization
-            elif '!' in line:
+            elif "!" in line:
                 try:
 
-                    En = float(line.split('=')[1].split('Ry')[0]) * CONSTANTS.ry_to_ev
+                    En = float(line.split("=")[1].split("Ry")[0]) * CONSTANTS.ry_to_ev
 
                     # Up till v6.5, the line after total energy would be the Harris-Foulkes estimate, followed by the
                     # estimated SCF accuracy. However, pw.x v6.6 removed the HF estimate line.
-                    marker = 'estimated scf accuracy'
+                    marker = "estimated scf accuracy"
                     for i in range(5):
                         subline = data_step[count + i]
                         if marker in subline:
                             try:
-                                E_acc = float(subline.split('<')[1].split('Ry')[0]) * CONSTANTS.ry_to_ev
+                                E_acc = (
+                                    float(subline.split("<")[1].split("Ry")[0])
+                                    * CONSTANTS.ry_to_ev
+                                )
                             except Exception:
                                 pass
                             else:
                                 break
                     else:
-                        raise KeyError(f'could not find and parse the line with `{marker}`')
+                        raise KeyError(
+                            f"could not find and parse the line with `{marker}`"
+                        )
 
-                    for key, value in [['energy', En], ['energy_accuracy', E_acc]]:
+                    for key, value in [["energy", En], ["energy_accuracy", E_acc]]:
                         trajectory_data.setdefault(key, []).append(value)
                         parsed_data[key + units_suffix] = default_energy_units
                     # TODO: decide units for magnetization. now bohr mag/cell
@@ -445,22 +495,25 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                         line2 = data_step[count + j]
 
                         for string, key in [
-                            ['one-electron contribution', 'energy_one_electron'],
-                            ['hartree contribution', 'energy_hartree'],
-                            ['xc contribution', 'energy_xc'],
-                            ['ewald contribution', 'energy_ewald'],
-                            ['smearing contrib.', 'energy_smearing'],
-                            ['one-center paw contrib.', 'energy_one_center_paw'],
-                            ['est. exchange err', 'energy_est_exchange'],
-                            ['Fock energy', 'energy_fock'],
-                            ['Hubbard energy', 'energy_hubbard'],
+                            ["one-electron contribution", "energy_one_electron"],
+                            ["hartree contribution", "energy_hartree"],
+                            ["xc contribution", "energy_xc"],
+                            ["ewald contribution", "energy_ewald"],
+                            ["smearing contrib.", "energy_smearing"],
+                            ["one-center paw contrib.", "energy_one_center_paw"],
+                            ["est. exchange err", "energy_est_exchange"],
+                            ["Fock energy", "energy_fock"],
+                            ["Hubbard energy", "energy_hubbard"],
                             # ENVIRON specific contributions to the total energy
-                            ['electrostatic embedding', 'energy_embedding'],
-                            ['cavitation energy', 'energy_cavitation'],
-                            ['PV energy', 'energy_pv'],
-                            ['confinement energy', 'energy_confine'],
-                            ['electrolyte free energy', 'energy_electrolyte'],
-                            ['correction to one-el term', 'energy_one_electron_environ']
+                            ["electrostatic embedding", "energy_embedding"],
+                            ["cavitation energy", "energy_cavitation"],
+                            ["PV energy", "energy_pv"],
+                            ["confinement energy", "energy_confine"],
+                            ["electrolyte free energy", "energy_electrolyte"],
+                            [
+                                "correction to one-el term",
+                                "energy_one_electron_environ",
+                            ],
                         ]:
                             if string in line2:
                                 value = grep_energy_from_line(line2)
@@ -468,21 +521,29 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                                 parsed_data[key + units_suffix] = default_energy_units
 
                         # magnetizations
-                        if 'total magnetization' in line2:
-                            this_m = line2.split('=')[1].split('Bohr')[0]
+                        if "total magnetization" in line2:
+                            this_m = line2.split("=")[1].split("Bohr")[0]
                             try:  # magnetization might be a scalar
                                 value = float(this_m)
                             except ValueError:  # but can also be a three vector component in non-collinear calcs
                                 value = [float(i) for i in this_m.split()]
-                            trajectory_data.setdefault('total_magnetization', []).append(value)
-                            parsed_data['total_magnetization' + units_suffix] = default_magnetization_units
+                            trajectory_data.setdefault(
+                                "total_magnetization", []
+                            ).append(value)
+                            parsed_data[
+                                "total_magnetization" + units_suffix
+                            ] = default_magnetization_units
 
-                        elif 'absolute magnetization' in line2:
-                            value = float(line2.split('=')[1].split('Bohr')[0])
-                            trajectory_data.setdefault('absolute_magnetization', []).append(value)
-                            parsed_data['absolute_magnetization' + units_suffix] = default_magnetization_units
+                        elif "absolute magnetization" in line2:
+                            value = float(line2.split("=")[1].split("Bohr")[0])
+                            trajectory_data.setdefault(
+                                "absolute_magnetization", []
+                            ).append(value)
+                            parsed_data[
+                                "absolute_magnetization" + units_suffix
+                            ] = default_magnetization_units
                         # exit loop
-                        elif 'convergence' in line2:
+                        elif "convergence" in line2:
                             break
 
                     if vdw_correction:
@@ -490,41 +551,54 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
                         while True:
                             j += -1
                             line2 = data_step[count + j]
-                            if 'Non-local correlation energy' in line2:
+                            if "Non-local correlation energy" in line2:
                                 value = grep_energy_from_line(line2)
-                                trajectory_data.setdefault('energy_vdw', []).append(value)
+                                trajectory_data.setdefault("energy_vdw", []).append(
+                                    value
+                                )
                                 break
-                        parsed_data['energy_vdw' + units_suffix] = default_energy_units
+                        parsed_data["energy_vdw" + units_suffix] = default_energy_units
                 except Exception as exception:
                     import traceback
+
                     traceback.print_exc()
                     print(exception)
-                    logs.warning.append('Error while parsing for energy terms.')
+                    logs.warning.append("Error while parsing for energy terms.")
 
-            elif 'the Fermi energy is' in line:
+            elif "the Fermi energy is" in line:
                 try:
-                    value = float(line.split('is')[1].split('ev')[0])
-                    trajectory_data.setdefault('fermi_energy', []).append(value)
-                    parsed_data['fermi_energy' + units_suffix] = default_energy_units
+                    value = float(line.split("is")[1].split("ev")[0])
+                    trajectory_data.setdefault("fermi_energy", []).append(value)
+                    parsed_data["fermi_energy" + units_suffix] = default_energy_units
                 except Exception:
-                    logs.warning.append('Error while parsing Fermi energy from the output file.')
+                    logs.warning.append(
+                        "Error while parsing Fermi energy from the output file."
+                    )
 
             # Environ 1.0
-            elif 'the Fermi energy shift' in line:
-                try: 
-                    value = float(line.split('is')[1].split('ev')[0])
-                    trajectory_data.setdefault('fermi_energy_correction', []).append(value)
+            elif "the Fermi energy shift" in line:
+                try:
+                    value = float(line.split("is")[1].split("ev")[0])
+                    trajectory_data.setdefault("fermi_energy_correction", []).append(
+                        value
+                    )
                 except Exception:
-                    logs.warning.append('Error while parsing Fermi energy from the output file.')
+                    logs.warning.append(
+                        "Error while parsing Fermi energy from the output file."
+                    )
 
             # Environ 1.1, 2.0
             # TODO: need a way to figure out the Environ version based off the output (currently it's not printed out)
-            elif 'potential shift due' in line:
-                try: 
-                    value = float(line.split('is')[1].split('ev')[0])
-                    trajectory_data.setdefault('fermi_energy_correction', []).append(value)
+            elif "potential shift due" in line:
+                try:
+                    value = float(line.split("is")[1].split("ev")[0])
+                    trajectory_data.setdefault("fermi_energy_correction", []).append(
+                        value
+                    )
                 except Exception:
-                    logs.warning.append('Error while parsing Fermi energy from the output file.')
+                    logs.warning.append(
+                        "Error while parsing Fermi energy from the output file."
+                    )
 
             # TODO consider adding the ENVIRON force contribution too
             # # (ENVIRON) possibly useful...
@@ -532,168 +606,218 @@ def parse_stdout(stdout, input_parameters, parser_options=None, parsed_xml=None)
             #     try:
             #         forces = []
 
-            elif 'Forces acting on atoms' in line:
+            elif "Forces acting on atoms" in line:
                 try:
                     forces = []
                     j = 0
                     while True:
                         j += 1
                         line2 = data_step[count + j]
-                        if 'atom ' in line2:
-                            line2 = line2.split('=')[1].split()
+                        if "atom " in line2:
+                            line2 = line2.split("=")[1].split()
                             # CONVERT FORCES IN eV/Ang
-                            vec = [float(s) * CONSTANTS.ry_to_ev / CONSTANTS.bohr_to_ang for s in line2]
+                            vec = [
+                                float(s) * CONSTANTS.ry_to_ev / CONSTANTS.bohr_to_ang
+                                for s in line2
+                            ]
                             forces.append(vec)
                         if len(forces) == nat:
                             break
-                    trajectory_data.setdefault('forces', []).append(forces)
-                    parsed_data['forces' + units_suffix] = default_force_units
+                    trajectory_data.setdefault("forces", []).append(forces)
+                    parsed_data["forces" + units_suffix] = default_force_units
                 except Exception:
-                    logs.warning.append('Error while parsing forces.')
+                    logs.warning.append("Error while parsing forces.")
 
             # TODO: adding the parsing support for the decomposition of the forces
 
-            elif 'Total force =' in line:
+            elif "Total force =" in line:
                 try:  # note that I can't check the units: not written in output!
-                    value = float(line.split('=')[1].split('Total')[0]) * CONSTANTS.ry_to_ev / CONSTANTS.bohr_to_ang
-                    trajectory_data.setdefault('total_force', []).append(value)
-                    parsed_data['total_force' + units_suffix] = default_force_units
+                    value = (
+                        float(line.split("=")[1].split("Total")[0])
+                        * CONSTANTS.ry_to_ev
+                        / CONSTANTS.bohr_to_ang
+                    )
+                    trajectory_data.setdefault("total_force", []).append(value)
+                    parsed_data["total_force" + units_suffix] = default_force_units
                 except Exception:
-                    logs.warning.append('Error while parsing total force.')
+                    logs.warning.append("Error while parsing total force.")
 
-            elif ('entering subroutine stress ...'
-                  in line) or ('Computing stress (Cartesian axis) and pressure' in line):
+            elif ("entering subroutine stress ..." in line) or (
+                "Computing stress (Cartesian axis) and pressure" in line
+            ):
                 try:
                     stress = []
                     count2 = None
-                    for k in range(15):  # Up to 15 lines later - more than 10 are needed if vdW is turned on
-                        if 'P=' in data_step[count + k + 1]:
+                    for k in range(
+                        15
+                    ):  # Up to 15 lines later - more than 10 are needed if vdW is turned on
+                        if "P=" in data_step[count + k + 1]:
                             count2 = count + k + 1
                     if count2 is None:
                         logs.warning.append(
-                            'Error while parsing stress tensor: '
+                            "Error while parsing stress tensor: "
                             '"P=" not found within 15 lines from the start of the stress block'
                         )
                     else:
-                        if '(Ry/bohr**3)' not in data_step[count2]:
-                            raise QEOutputParsingError('Error while parsing stress: unexpected units.')
+                        if "(Ry/bohr**3)" not in data_step[count2]:
+                            raise QEOutputParsingError(
+                                "Error while parsing stress: unexpected units."
+                            )
                         for k in range(3):
                             line2 = data_step[count2 + k + 1].split()
-                            vec = [float(s) * 10**(-9) * CONSTANTS.ry_si / (CONSTANTS.bohr_si)**3 for s in line2[0:3]]
+                            vec = [
+                                float(s)
+                                * 10 ** (-9)
+                                * CONSTANTS.ry_si
+                                / (CONSTANTS.bohr_si) ** 3
+                                for s in line2[0:3]
+                            ]
                             stress.append(vec)
-                        trajectory_data.setdefault('stress', []).append(stress)
-                        parsed_data['stress' + units_suffix] = default_stress_units
+                        trajectory_data.setdefault("stress", []).append(stress)
+                        parsed_data["stress" + units_suffix] = default_stress_units
                 except Exception:
                     import traceback
-                    logs.warning.append(f'Error while parsing stress tensor: {traceback.format_exc()}')
+
+                    logs.warning.append(
+                        f"Error while parsing stress tensor: {traceback.format_exc()}"
+                    )
 
             # Electronic and ionic dipoles when 'lelfield' was set to True in input parameters
             elif lelfield is True:
 
-                if 'Electronic Dipole per cell' in line:
+                if "Electronic Dipole per cell" in line:
                     electronic_dipole = float(line.split()[-1])
-                    trajectory_frame.setdefault('electronic_dipole_cell_average', []).append(electronic_dipole)
+                    trajectory_frame.setdefault(
+                        "electronic_dipole_cell_average", []
+                    ).append(electronic_dipole)
 
-                elif 'Ionic Dipole per cell' in line:
+                elif "Ionic Dipole per cell" in line:
                     ionic_dipole = float(line.split()[-1])
-                    trajectory_frame.setdefault('ionic_dipole_cell_average', []).append(ionic_dipole)
+                    trajectory_frame.setdefault("ionic_dipole_cell_average", []).append(
+                        ionic_dipole
+                    )
 
-                elif 'Electronic Dipole on Cartesian axes' in line:
-                    electronic_dipole = [float(data_step[count + i + 1].split()[1]) for i in range(3)]
-                    trajectory_frame.setdefault('electronic_dipole_cartesian_axes', []).append(electronic_dipole)
+                elif "Electronic Dipole on Cartesian axes" in line:
+                    electronic_dipole = [
+                        float(data_step[count + i + 1].split()[1]) for i in range(3)
+                    ]
+                    trajectory_frame.setdefault(
+                        "electronic_dipole_cartesian_axes", []
+                    ).append(electronic_dipole)
 
-                elif 'Ionic Dipole on Cartesian axes' in line:
-                    ionic_dipole = [float(data_step[count + i + 1].split()[1]) for i in range(3)]
-                    trajectory_frame.setdefault('ionic_dipole_cartesian_axes', []).append(ionic_dipole)
+                elif "Ionic Dipole on Cartesian axes" in line:
+                    ionic_dipole = [
+                        float(data_step[count + i + 1].split()[1]) for i in range(3)
+                    ]
+                    trajectory_frame.setdefault(
+                        "ionic_dipole_cartesian_axes", []
+                    ).append(ionic_dipole)
 
         # End of trajectory frame, only keep last entries for dipole related values
         if lelfield is True:
 
             # For every property only get the last entry if possible
             try:
-                ed_cell = trajectory_frame['electronic_dipole_cell_average'].pop()
+                ed_cell = trajectory_frame["electronic_dipole_cell_average"].pop()
             except IndexError:
                 ed_cell = None
 
             try:
-                ed_axes = trajectory_frame['electronic_dipole_cartesian_axes'].pop()
+                ed_axes = trajectory_frame["electronic_dipole_cartesian_axes"].pop()
             except IndexError:
                 ed_axes = None
 
             try:
-                id_cell = trajectory_frame['ionic_dipole_cell_average'].pop()
+                id_cell = trajectory_frame["ionic_dipole_cell_average"].pop()
             except IndexError:
                 id_cell = None
 
             try:
-                id_axes = trajectory_frame['ionic_dipole_cartesian_axes'].pop()
+                id_axes = trajectory_frame["ionic_dipole_cartesian_axes"].pop()
             except IndexError:
                 id_axes = None
 
             # Only add them if all four properties were successfully parsed
-            if all([value is not None for value in [ed_cell, ed_axes, id_cell, id_axes]]):
-                trajectory_data.setdefault('electronic_dipole_cell_average', []).append(ed_cell)
-                trajectory_data.setdefault('electronic_dipole_cartesian_axes', []).append(ed_axes)
-                trajectory_data.setdefault('ionic_dipole_cell_average', []).append(id_cell)
-                trajectory_data.setdefault('ionic_dipole_cartesian_axes', []).append(id_axes)
+            if all(
+                [value is not None for value in [ed_cell, ed_axes, id_cell, id_axes]]
+            ):
+                trajectory_data.setdefault("electronic_dipole_cell_average", []).append(
+                    ed_cell
+                )
+                trajectory_data.setdefault(
+                    "electronic_dipole_cartesian_axes", []
+                ).append(ed_axes)
+                trajectory_data.setdefault("ionic_dipole_cell_average", []).append(
+                    id_cell
+                )
+                trajectory_data.setdefault("ionic_dipole_cartesian_axes", []).append(
+                    id_axes
+                )
 
     # check consistency of scf_accuracy and scf_iterations
-    if 'scf_accuracy' in trajectory_data:
-        if 'scf_iterations' in trajectory_data:
-            if len(trajectory_data['scf_accuracy']) != sum(trajectory_data['scf_iterations']):
+    if "scf_accuracy" in trajectory_data:
+        if "scf_iterations" in trajectory_data:
+            if len(trajectory_data["scf_accuracy"]) != sum(
+                trajectory_data["scf_iterations"]
+            ):
                 logs.warning.append(
-                    'the length of scf_accuracy does not match the sum of the elements of scf_iterations.'
+                    "the length of scf_accuracy does not match the sum of the elements of scf_iterations."
                 )
         else:
-            logs.warning.append('"the scf_accuracy array was parsed but the scf_iterations was not.')
+            logs.warning.append(
+                '"the scf_accuracy array was parsed but the scf_iterations was not.'
+            )
 
     # If specified in the parser options, parse the atomic occupations
-    parse_atomic_occupations = parser_options.get('parse_atomic_occupations', False)
+    parse_atomic_occupations = parser_options.get("parse_atomic_occupations", False)
 
     if parse_atomic_occupations:
 
         atomic_occupations = {}
-        hubbard_blocks = stdout.split('LDA+U parameters')
+        hubbard_blocks = stdout.split("LDA+U parameters")
 
-        for line in hubbard_blocks[-1].split('\n'):
+        for line in hubbard_blocks[-1].split("\n"):
 
-            if 'Tr[ns(na)]' in line:
+            if "Tr[ns(na)]" in line:
 
-                values = line.split('=')
+                values = line.split("=")
                 atomic_index = values[0].split()[1]
                 occupations = values[1].split()
 
                 if len(occupations) == 1:
-                    atomic_occupations[atomic_index] = {'total': occupations[0]}
+                    atomic_occupations[atomic_index] = {"total": occupations[0]}
                 elif len(occupations) == 3:
                     atomic_occupations[atomic_index] = {
-                        'up': occupations[0],
-                        'down': occupations[1],
-                        'total': occupations[2]
+                        "up": occupations[0],
+                        "down": occupations[1],
+                        "total": occupations[2],
                     }
                 else:
                     continue
 
-        parsed_data['atomic_occupations'] = atomic_occupations
+        parsed_data["atomic_occupations"] = atomic_occupations
 
     # Ionic calculations and BFGS algorithm did not print that calculation is converged
-    if 'atomic_positions_relax' in trajectory_data and not marker_bfgs_converged:
-        logs.error.append('ERROR_IONIC_CONVERGENCE_NOT_REACHED')
+    if "atomic_positions_relax" in trajectory_data and not marker_bfgs_converged:
+        logs.error.append("ERROR_IONIC_CONVERGENCE_NOT_REACHED")
 
     # Ionic calculation that hit the maximum number of ionic steps. Note: does not necessarily mean that convergence was
     # not reached as it could have occurred in the last step.
-    if maximum_ionic_steps is not None and maximum_ionic_steps == parsed_data.get('number_ionic_steps', None):
-        logs.warning.append('ERROR_MAXIMUM_IONIC_STEPS_REACHED')
+    if maximum_ionic_steps is not None and maximum_ionic_steps == parsed_data.get(
+        "number_ionic_steps", None
+    ):
+        logs.warning.append("ERROR_MAXIMUM_IONIC_STEPS_REACHED")
 
     # Remove duplicate log messages by turning it into a set. Then convert back to list as that is what is expected
     logs.error = list(set(logs.error))
     logs.warning = list(set(logs.warning))
 
-    parsed_data['bands'] = bands_data
-    parsed_data['structure'] = structure_data
-    parsed_data['trajectory'] = trajectory_data
+    parsed_data["bands"] = bands_data
+    parsed_data["structure"] = structure_data
+    parsed_data["trajectory"] = trajectory_data
 
     return parsed_data, logs
+
 
 def parse_debug(debug, parser_options=None):
     """Parses the debug content of a Quantum ESPRESSO `pw.x` + Environ calculation.
@@ -707,7 +831,7 @@ def parse_debug(debug, parser_options=None):
         parser_options = {}
 
     # Separate the input string into separate lines
-    data_lines = debug.split('\n')
+    data_lines = debug.split("\n")
 
     logs = get_logging_container()
 
@@ -716,22 +840,21 @@ def parse_debug(debug, parser_options=None):
     # now grep quantities that can be considered isolated informations.
     bohr_to_angstrom = 0.529177
     for count, line in enumerate(data_lines):
-        if 'volume of the QM region' in line:
-            qm_volume = float(line.split('=')[1].strip())
+        if "volume of the QM region" in line:
+            qm_volume = float(line.split("=")[1].strip())
             # convert units from QE-internal to AiiDA
             # TODO: these constants probably exist in the AiiDA package, so replace them
             qm_volume *= bohr_to_angstrom ** 3
-            if 'qm_volume' not in parsed_data:
-                parsed_data['qm_volume'] = [qm_volume]
+            if "qm_volume" not in parsed_data:
+                parsed_data["qm_volume"] = [qm_volume]
             else:
-                parsed_data['qm_volume'].append(qm_volume)
-        if 'surface of the QM region' in line:
-            qm_surface = float(line.split('=')[1].strip())
+                parsed_data["qm_volume"].append(qm_volume)
+        if "surface of the QM region" in line:
+            qm_surface = float(line.split("=")[1].strip())
             qm_surface *= bohr_to_angstrom ** 2
-            if 'qm_surface' not in parsed_data:
-                parsed_data['qm_surface'] = [qm_surface]
+            if "qm_surface" not in parsed_data:
+                parsed_data["qm_surface"] = [qm_surface]
             else:
-                parsed_data['qm_surface'].append(qm_surface)
-    
+                parsed_data["qm_surface"].append(qm_surface)
+
     return parsed_data, logs
-    

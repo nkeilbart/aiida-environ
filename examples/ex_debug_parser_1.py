@@ -1,33 +1,39 @@
-from aiida import load_profile
-load_profile()
+# -*- coding: utf-8 -*-
+"""This example script sets up a standard environ calculation with an electrolyte
 
-from aiida.orm import Dict
-from aiida.orm.utils import load_code
-from aiida.engine import submit
-from aiida.orm.nodes.data.upf import get_pseudos_from_structure
-from aiida.plugins.factories import DataFactory
+Functionality for the debug parser can be seen here (activated by verbose=1 in 
+the `environ_parameters["ENVIRON"]` dictionary)
+"""
+
 import numpy as np
+from aiida.engine import submit
+from aiida.orm import Dict
+from aiida.orm.nodes.data.upf import get_pseudos_from_structure
+from aiida.orm.utils import load_code
+from aiida.plugins.factories import DataFactory
 
-# try loading aiida-environ, everything stored as nodes already
+# USER SHOULD CHANGE FOR THEIR SYSTEM
 code = load_code(109)
 builder = code.get_builder()
 builder.metadata.label = "Environ test"
 builder.metadata.description = "Test of environ plugin"
 builder.metadata.options.resources = {
-        'num_machines': 1,
-        'tot_num_mpiprocs': 4,
-        'num_mpiprocs_per_machine': 4
+    "num_machines": 1,
+    "tot_num_mpiprocs": 4,
+    "num_mpiprocs_per_machine": 4,
 }
 builder.metadata.options.max_wallclock_seconds = 30 * 60
 
-StructureData = DataFactory('structure')
+# STRUCTURE
+StructureData = DataFactory("structure")
 unit_cell = [[2.9335, 0, 0], [0, 2.9335, 0], [0, 0, 34.4418]]
 structure = StructureData(cell=unit_cell)
 unit_cell = np.array(unit_cell)
 structure.append_atom(position=(1.46675, 1.46675, 10.000), symbols="Ag")
 structure.append_atom(position=(0.00000, 0.00000, 12.033669694), symbols="Ag")
 
-KpointsData = DataFactory('array.kpoints')
+# KPOINTS
+KpointsData = DataFactory("array.kpoints")
 kpoints_mesh = KpointsData()
 kpoints_mesh.set_kpoints_mesh([1, 1, 1])
 
@@ -51,6 +57,7 @@ parameters = {
     },
 }
 
+# ENVIRON PARAMETERS
 environ_parameters = {
     "ENVIRON": {
         "verbose": 1,
@@ -78,13 +85,13 @@ environ_parameters = {
         "pbc_dim": 2,
         "pbc_axis": 3,
         "tol": 1e-11,
-    }
+    },
 }
 
 builder.structure = structure
 builder.kpoints = kpoints_mesh
 builder.parameters = Dict(dict=parameters)
-builder.pseudos = get_pseudos_from_structure(builder.structure, 'SSSPe')
+builder.pseudos = get_pseudos_from_structure(builder.structure, "SSSPe")
 builder.environ_parameters = Dict(dict=environ_parameters)
 
 calculation = submit(builder)

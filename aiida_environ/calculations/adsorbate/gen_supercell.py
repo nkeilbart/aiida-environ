@@ -1,16 +1,16 @@
+# -*- coding: utf-8 -*-
 import math
-from typing import Tuple, List
-from itertools import combinations
 from collections import OrderedDict
+from itertools import combinations
+from typing import List as Pylist
+from typing import Tuple
 
 import numpy as np
-
 from aiida.engine import calcfunction
-from aiida.orm.utils import load_node
-from aiida.orm import StructureData, List, Dict
+from aiida.orm import List, StructureData
 
 
-def gen_structures_n(size: Tuple[int, int], n: int) -> List:
+def gen_structures_n(size: Tuple[int, int], n: int) -> Pylist:
     """Generates a list of numpy arrays, where each array is a grid representation of the adsorbate
     distribution, 1 means that an adsorbate is present on a grid space and 0 means that the adsorbate
     is not present
@@ -88,12 +88,12 @@ def intranslatable_coords(coords: List) -> List:
                 itcoords[length] = [angle]
             else:
                 itcoords[length].append(angle)
-    
+
     # sort everything
     itcoords = OrderedDict(sorted(itcoords.items()))
     for k in itcoords:
         itcoords[k].sort()
-        
+
     return itcoords
 
 
@@ -172,7 +172,7 @@ def test_symmetry(i1: List, i2: List) -> bool:
             match = True
         elif i1[length1] == rotate(temp, 1.5):
             match = True
-        
+
         if not match:
             return False
 
@@ -181,9 +181,9 @@ def test_symmetry(i1: List, i2: List) -> bool:
 
 @calcfunction
 def adsorbate_gen_supercell(parameters, structure, vacancies):
-    size = (parameters['cell_shape_x'], parameters['cell_shape_y'])
-    reflect = parameters['reflect_vacancies']
-    axis = parameters['system_axis']
+    size = (parameters["cell_shape_x"], parameters["cell_shape_y"])
+    reflect = parameters["reflect_vacancies"]
+    axis = parameters["system_axis"]
     n = size[0] * size[1]
     perms = []
     # 0 case (not stored)
@@ -201,7 +201,7 @@ def adsorbate_gen_supercell(parameters, structure, vacancies):
         perms.append(np.copy(temp))
 
     if n > 3:
-        for i in range(2, n-1):
+        for i in range(2, n - 1):
             inner_perms = gen_structures_n(size, i)
             perms.extend(inner_perms)
     struct_perms = []
@@ -210,7 +210,7 @@ def adsorbate_gen_supercell(parameters, structure, vacancies):
         for j, y in enumerate(x):
             list2 = []
             for k, z in enumerate(y):
-                list2.append('H' if z == 1 else 0)
+                list2.append("H" if z == 1 else 0)
             list1.append(list2)
         struct_perms.append(list1)
 
@@ -234,9 +234,9 @@ def adsorbate_gen_supercell(parameters, structure, vacancies):
                         # take the position of the axis as the mean value
                         apos = 0.0
                         for site in structure.sites:
-                            apos += site.position[axis-1]
+                            apos += site.position[axis - 1]
                         apos /= len(structure.sites)
-                        rpos[axis-1] = 2 * apos - rpos[axis-1]
+                        rpos[axis - 1] = 2 * apos - rpos[axis - 1]
                         new_structure.append_atom(position=tuple(rpos), symbols=sp)
         new_structure.store()
         struct_list.append(new_structure.pk)
@@ -245,7 +245,7 @@ def adsorbate_gen_supercell(parameters, structure, vacancies):
     struct_list = List(list=struct_list)
     added = List(list=added)
 
-    return { 'output_structs': struct_list, 'num_adsorbate': added }
+    return {"output_structs": struct_list, "num_adsorbate": added}
 
 
 @calcfunction

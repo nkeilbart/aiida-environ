@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from aiida.orm import QueryBuilder, load_group
 from aiida_pseudo.groups.family.pseudo import PseudoPotentialFamily
 

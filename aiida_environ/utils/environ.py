@@ -1,4 +1,3 @@
-
 # TODO move to input, or retrieve if I decide reading this from the output actually is a good idea (in the case where
 # we load old output files into a database or something...)
 # environ_defaults = {
@@ -6,7 +5,7 @@
 #     'switching_function': "SCCS", # set by `&BOUNDARY/solvent_mode`
 #     'switching_parameters': [0.005, 0.0001], # `rhomax` and `rhomin`
 #     'static_permittivity': 1.0,
-#     'epsilon_calculation': "electronic", # set by `&BOUNDARY/solvent_mode` 
+#     'epsilon_calculation': "electronic", # set by `&BOUNDARY/solvent_mode`
 #     #TODO check if this is necessary alongside switching_function, consider renaming these
 #     'surface_tension': 0.0, # in dyn/cm
 #     'external_pressure': 0.0, # in GPa
