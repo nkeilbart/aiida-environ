@@ -10,7 +10,7 @@ readme = "README.md"
 license = {file = "LICENSE.txt"}
 keywords = ["aiida", "workflows", "environ"]
 authors = [
-    {email = "oliviero.andreussi@unt.edu"},
+    {email = "materialab@unt.edu"},
     {name = "MateriaLAB"}
 ]
 classifiers = [
@@ -56,3 +56,4 @@ tests = [
 
 [tool.flit.module]
 name = 'aiida_environ'
+
