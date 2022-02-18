@@ -1,0 +1,46 @@
+&CONTROL
+   calculation = 'relax'
+   pseudo_dir = '/home/mat0330/espresso/pseudo/SSSP/'
+   tprnfor = .TRUE.
+   forc_conv_thr = 0.0005
+   restart_mode = 'from_scratch'
+   nstep = 100
+   outdir = './'
+/
+&SYSTEM
+   ibrav = 1
+   ecutrho = 480
+   ecutwfc = 60
+   smearing = "gauss"
+   degauss = 0
+   nat = 10
+   ntyp = 3
+   tot_charge = 0
+   celldm(1) = 25.660603
+/
+&ELECTRONS
+   electron_maxstep = 200
+   conv_thr = 5.d-9
+/
+&IONS
+   ion_dynamics = 'bfgs'
+/
+&CELL
+/
+K_POINTS (automatic)
+1 1 1 0 0 0
+ATOMIC_SPECIES
+H   1.008  H.pbe-rrkjus_psl.1.0.0.UPF
+C  12.010  C.pbe-n-kjpaw_psl.1.0.0.UPF
+O  15.999  O.pbe-n-kjpaw_psl.0.1.UPF
+ATOMIC_POSITIONS (bohr)
+C       10.267258732  13.196060796  12.850985497
+H       10.949527684  11.225684711  12.847710209
+H       10.987709021  14.144876742  11.139155955
+C       11.235920480  14.553923269  15.184789008
+H       10.514356545  16.510601047  15.204472120
+H       10.550480501  13.582514569  16.897761713
+O       13.947960310  14.521815345  15.071950849
+H       14.578158766  15.354170346  16.584253845
+O        7.555247740  13.281546372  12.939516510
+H        6.920453221  12.386026803  11.465827293

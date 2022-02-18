@@ -70,6 +70,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/source/
 
 # PyBuilder
 .pybuilder/
@@ -139,4 +140,19 @@ cython_debug/
 
 # project folders to ignore
 # for now ignore examples folder
-examples/
+aiida_environ/examples/ex_environ_force_test.py
+aiida_environ/examples/ex_finite_difference_calc.py
+aiida_environ/tests/
+examples/submit_test/
+usertests/
+.vscode
+.python-version
+.flake8
+.isort.cfg
+.markdownlint.yaml
+.pyrightconfig.json
+.shellcheckrc
+.trunk/
+
+*.gv
+*.gv.*

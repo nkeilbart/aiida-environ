@@ -1,28 +1,44 @@
 # -*- coding: utf-8 -*-
-# -*- coding: utf-8 -*-
 from aiida import orm
+from aiida.common.datastructures import CalcInfo
 from aiida.common.folders import Folder
-from aiida.common.datastructures import CalcInfo, CodeInfo
-from aiida.engine import CalcJob, CalcJobProcessSpec
-
+from aiida.engine import CalcJobProcessSpec
+from aiida_quantumespresso.calculations import (
+    BasePwCpInputGenerator,
+    _lowercase_dict,
+    _uppercase_dict,
+)
 from aiida_quantumespresso.calculations.pw import PwCalculation
-from aiida_quantumespresso.calculations import BasePwCpInputGenerator, _lowercase_dict, _uppercase_dict
 from aiida_quantumespresso.utils.convert import convert_input_to_namelist_entry
 
+from aiida_environ.data.charge import EnvironChargeData
+
+
 class EnvPwCalculation(PwCalculation):
+    """`CalcJob` implementation for the pw.x code of Quantum ESPRESSO + Environ."""
+
+    _DEFAULT_DEBUG_FILE = 'environ.debug'
+
     @classmethod
     def define(cls, spec: CalcJobProcessSpec) -> None:
         """Define the process specification."""
         # yapf: disable
         super().define(spec)
         spec.input('metadata.options.parser_name', valid_type=str, default='environ.pw')
+        spec.input('metadata.options.debug_filename', valid_type=str, default=cls._DEFAULT_DEBUG_FILE)
         spec.input('environ_parameters', valid_type=orm.Dict,
             help='The input parameters that are to be used to construct the input file.')
-        # spec.output('output_environ_parameters', valid_type=orm.Dict,
-        #     help='The `output_environ_parameters` output node of the successful calculation.')
+        spec.input('external_charges', valid_type=EnvironChargeData, required=False,
+            help='External charges')
+        # TODO add the EnvironDielectricData type too
+        # spec.input('environ_dielectric', valid_type=EnvDielectricData, required=False,
+        #    help='Dielectric regions')
 
     def prepare_for_submission(self, folder: Folder) -> CalcInfo:
         calcinfo = BasePwCpInputGenerator.prepare_for_submission(self, folder)
+
+        # add additional files to retrieve list
+        calcinfo.retrieve_list.append(self.metadata.options.debug_filename)
         # TODO consider lists of length > 1
         codeinfo = calcinfo.codes_info[0]
         # prepend the command line parametes with --environ (so that it appears just after the executable call)
@@ -34,6 +50,10 @@ class EnvPwCalculation(PwCalculation):
         else:
             settings = {}
         input_filecontent = self._generate_environinputdata(self.inputs.environ_parameters, self.inputs.structure, settings)
+
+        # TODO: update the parameters with the number of ext charges
+        if 'external_charges' in self.inputs:
+            input_filecontent += self.inputs.external_charges.environ_output()
 
         # write the environ input file (name is fixed)
         with folder.open('environ.in', 'w') as handle:
@@ -64,13 +84,11 @@ class EnvPwCalculation(PwCalculation):
         mapping_species = {kind_name: (index + 1) for index, kind_name in enumerate(kind_names)}
 
         for namelist_name in namelists_toprint:
-            inputfile += '&{0}\n'.format(namelist_name)
+            inputfile += f'&{namelist_name}\n'
             # namelist content; set to {} if not present, so that we leave an empty namelist
             namelist = input_params.pop(namelist_name, {})
             for key, value in sorted(namelist.items()):
                 inputfile += convert_input_to_namelist_entry(key, value, mapping=mapping_species)
             inputfile += '/\n'
-
-        # TODO add cards
 
         return inputfile

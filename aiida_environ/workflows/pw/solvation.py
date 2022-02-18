@@ -1,15 +1,18 @@
-from aiida.engine import WorkChain, ToContext, append_, calcfunction
-from aiida.plugins import CalculationFactory
-from aiida.orm import Float, Dict
+# -*- coding: utf-8 -*-
 from aiida.common import AttributeDict
+from aiida.engine import ToContext, WorkChain, calcfunction
+from aiida.orm import Dict, Float
+from aiida.plugins import WorkflowFactory
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
-from aiida_environ.utils.merge import recursive_update_dict
+from aiida_quantumespresso.workflows.protocols.utils import recursive_merge
 
-EnvPwCalculation = CalculationFactory('environ.pw')
+EnvPwBaseWorkChain = WorkflowFactory("environ.pw.base")
+
 
 @calcfunction
 def subtract_energy(x, y):
     return x - y
+
 
 class PwSolvationWorkChain(WorkChain):
     """WorkChain to compute the solvation energy for a given structure using Quantum ESPRESSO pw.x + ENVIRON
@@ -23,84 +26,173 @@ class PwSolvationWorkChain(WorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
-        spec.expose_inputs(EnvPwCalculation, namespace='pw',
-            namespace_options={'help': 'Inputs for the `EnvPwCalculation`.'})
-        spec.input('environ_vacuum', valid_type=Dict, required=False, help='The input for a vacuum scf simulation')
-        spec.input('environ_solution', valid_type=Dict, required=False, help='The input for a solution scf simulation')
+        # TODO call the base workchain instead of envpwcalculation
+        spec.expose_inputs(
+            EnvPwBaseWorkChain,
+            namespace="base",
+            namespace_options={"help": "Inputs for the `EnvPwCalculation`."},
+        )
+        spec.input(
+            "environ_vacuum",
+            valid_type=Dict,
+            required=False,
+            help="The base parameter input for an environ simulation",
+        )
+        spec.input(
+            "environ_solution",
+            valid_type=Dict,
+            required=False,
+            help="The base parameter input for an environ simulation",
+        )
+        spec.input(
+            "energy_vacuum",
+            valid_type=Float,
+            required=False,
+            help="The vacuum energy in eV, if provided, skips the vacuum calculation",
+        )
         spec.outline(
             cls.setup,
-            cls.vacuum,
-            cls.solution,
+            cls.run_simulations,
             cls.post_processing,
             cls.produce_result,
         )
-        spec.output('solvation_energy', valid_type = Float)
+        spec.output("solvation_energy", valid_type=Float)
+
+    # @classmethod
+    # def get_builder_from_protocol(
+    #     cls,
+    #     code,
+    #     structure,
+    #     protocol=None,
+    #     overrides=None
+    # ):
+    #     """Return a builder prepopulated with inputs selected according to the chosen protocol.
+    #     # TODO add protocols for solvation, requires inherit ProtocolMixin
+
+    #     :param code: the ``Code`` instance configured for the ``environ.pw`` plugin.
+    #     :param structure: the ``StructureData`` instance to use.
+    #     :param protocol: protocol to use, if not specified, the default will be used.
+    #     :param overrides: optional dictionary of inputs to override the defaults of the protocol.
+    #     """
+    #     inputs = cls.get_protocol_inputs(protocol, overrides)
+
+    #     args = (code, structure, protocol)
+    #     base = EnvPwBaseWorkChain.get_builder_from_protocol(*args, overrides=inputs.get('base', None))
+
+    #     builder = cls.get_builder()
+    #     builder.base = base
+
+    #     return builder
 
     def setup(self):
-        pass
-    
-    def vacuum(self):
-        inputs = AttributeDict(self.exposed_inputs(EnvPwCalculation, namespace='pw'))
-        
-        inputs.environ_parameters = inputs.environ_parameters.get_dict()
+        from copy import deepcopy
 
-        # If a custom `environ_vacuum` dict exists, copy its values over here
-        if 'environ_vacuum' in self.inputs:
-            recursive_update_dict(inputs.environ_parameters, self.inputs.environ_vacuum.get_dict())
+        """context setup"""
+        self.ctx.should_run_vacuum = True
+        if "energy_vacuum" in self.inputs:
+            # don't run a vacuum calculation
+            self.ctx.should_run_vacuum = False
 
-        inputs.environ_parameters.setdefault('ENVIRON', {})
-        inputs.environ_parameters['ENVIRON'].setdefault('verbose', 0)
-        inputs.environ_parameters['ENVIRON'].setdefault('environ_thr', 1e-1)
-        inputs.environ_parameters['ENVIRON'].setdefault('environ_type', 'vacuum')
-        inputs.environ_parameters['ENVIRON'].setdefault('environ_restart', False)
-        inputs.environ_parameters['ENVIRON'].setdefault('env_electrostatic', True)
+        self.ctx.vacuum_inputs = AttributeDict(
+            self.exposed_inputs(EnvPwBaseWorkChain, namespace="base")
+        )
+        self.ctx.solution_inputs = AttributeDict(
+            self.exposed_inputs(EnvPwBaseWorkChain, namespace="base")
+        )
+        environ_parameters = self.inputs.base.pw.environ_parameters.get_dict()
+        if "environ_vacuum" in self.inputs:
+            vacuum_overrides = self.inputs.environ_vacuum.get_dict()
+        else:
+            vacuum_overrides = {}
+        if "environ_solution" in self.inputs:
+            solution_overrides = self.inputs.environ_solution.get_dict()
+        else:
+            solution_overrides = {}
 
-        inputs.environ_parameters.setdefault('ELECTROSTATIC', {})
-        inputs.environ_parameters['ELECTROSTATIC'].setdefault('solver', 'direct')
-        inputs.environ_parameters['ELECTROSTATIC'].setdefault('auxiliary', 'none')
+        self.ctx.vacuum_inputs.pw.environ_parameters = deepcopy(
+            recursive_merge(environ_parameters, vacuum_overrides)
+        )
+        self.ctx.solution_inputs.pw.environ_parameters = deepcopy(
+            recursive_merge(environ_parameters, solution_overrides)
+        )
 
-        inputs = prepare_process_inputs(EnvPwCalculation, inputs)
-        running = self.submit(EnvPwCalculation, **inputs)
+        # Set all the defaults
 
-        self.report('launching EnvPwCalculation<{}>'.format(running.pk))
+        self.ctx.vacuum_inputs.pw.environ_parameters.setdefault("ENVIRON", {})
+        self.ctx.vacuum_inputs.pw.environ_parameters["ENVIRON"].setdefault("verbose", 0)
+        self.ctx.vacuum_inputs.pw.environ_parameters["ENVIRON"].setdefault(
+            "environ_thr", 1e-1
+        )
+        self.ctx.vacuum_inputs.pw.environ_parameters["ENVIRON"].setdefault(
+            "environ_type", "vacuum"
+        )
+        self.ctx.vacuum_inputs.pw.environ_parameters["ENVIRON"].setdefault(
+            "environ_restart", False
+        )
+        self.ctx.vacuum_inputs.pw.environ_parameters["ENVIRON"].setdefault(
+            "env_electrostatic", True
+        )
 
-        return ToContext(workchains = append_(running))
-    
-    def solution(self):
-        inputs = AttributeDict(self.exposed_inputs(EnvPwCalculation, namespace='pw'))
+        self.ctx.vacuum_inputs.pw.environ_parameters.setdefault("ELECTROSTATIC", {})
+        self.ctx.vacuum_inputs.pw.environ_parameters["ELECTROSTATIC"].setdefault(
+            "solver", "direct"
+        )
+        self.ctx.vacuum_inputs.pw.environ_parameters["ELECTROSTATIC"].setdefault(
+            "auxiliary", "none"
+        )
 
-        inputs.environ_parameters = inputs.environ_parameters.get_dict()
+        self.ctx.solution_inputs.pw.environ_parameters.setdefault("ENVIRON", {})
+        self.ctx.solution_inputs.pw.environ_parameters["ENVIRON"].setdefault(
+            "verbose", 0
+        )
+        self.ctx.solution_inputs.pw.environ_parameters["ENVIRON"].setdefault(
+            "environ_thr", 1e-1
+        )
+        self.ctx.solution_inputs.pw.environ_parameters["ENVIRON"].setdefault(
+            "environ_type", "water"
+        )
+        self.ctx.solution_inputs.pw.environ_parameters["ENVIRON"].setdefault(
+            "environ_restart", False
+        )
+        self.ctx.solution_inputs.pw.environ_parameters["ENVIRON"].setdefault(
+            "env_electrostatic", True
+        )
 
-        # If a custom `environ_solution` dict exists, copy its values over here
-        if 'environ_solution' in self.inputs:
-            recursive_update_dict(inputs.environ_parameters, self.inputs.environ_solution.get_dict())
+        self.ctx.solution_inputs.pw.environ_parameters.setdefault("ELECTROSTATIC", {})
+        self.ctx.solution_inputs.pw.environ_parameters["ELECTROSTATIC"].setdefault(
+            "solver", "cg"
+        )
+        self.ctx.solution_inputs.pw.environ_parameters["ELECTROSTATIC"].setdefault(
+            "auxiliary", "none"
+        )
 
-        inputs.environ_parameters.setdefault('ENVIRON', {})
-        inputs.environ_parameters['ENVIRON'].setdefault('verbose', 0)
-        inputs.environ_parameters['ENVIRON'].setdefault('environ_thr', 1e-1)
-        inputs.environ_parameters['ENVIRON'].setdefault('environ_type', 'water')
-        inputs.environ_parameters['ENVIRON'].setdefault('environ_restart', False)
-        inputs.environ_parameters['ENVIRON'].setdefault('env_electrostatic', True)
+    def run_simulations(self):
+        calculations = {}
 
-        inputs.environ_parameters.setdefault('ELECTROSTATIC', {})
-        inputs.environ_parameters['ELECTROSTATIC'].setdefault('solver', 'cg')
-        inputs.environ_parameters['ELECTROSTATIC'].setdefault('auxiliary', 'none')
+        if self.ctx.should_run_vacuum:
+            vacuum_inputs = prepare_process_inputs(
+                EnvPwBaseWorkChain, self.ctx.vacuum_inputs
+            )
+            self.ctx.vacuum_wc = self.submit(EnvPwBaseWorkChain, **vacuum_inputs)
+            calculations["vacuum"] = self.ctx.vacuum_wc
 
-        inputs = prepare_process_inputs(EnvPwCalculation, inputs)
-        running = self.submit(EnvPwCalculation, **inputs)
+        solution_inputs = prepare_process_inputs(
+            EnvPwBaseWorkChain, self.ctx.solution_inputs
+        )
+        self.ctx.solution_wc = self.submit(EnvPwBaseWorkChain, **solution_inputs)
+        calculations["solution"] = self.ctx.solution_wc
 
-        self.report('launching EnvPwCalculation<{}>'.format(running.pk))
-        
-        return ToContext(workchains = append_(running))
-    
-    def post_processing(self): 
+        return ToContext(**calculations)
+
+    def post_processing(self):
         # subtract energy in water calculation by energy in vacuum calculation
-        workchain_vacuum = self.ctx.workchains[0]
-        workchain_solution = self.ctx.workchains[1]
-        e_solvent = workchain_vacuum.outputs.output_parameters.get_dict()['energy']
-        e_vacuum = workchain_solution.outputs.output_parameters.get_dict()['energy']
+        if "energy_vacuum" in self.inputs:
+            e_vacuum = self.inputs.energy_vacuum
+        else:
+            e_vacuum = self.ctx.vacuum_wc.outputs.output_parameters["energy"]
+
+        e_solvent = self.ctx.solution_wc.outputs.output_parameters["energy"]
         self.ctx.energy_difference = subtract_energy(Float(e_solvent), Float(e_vacuum))
-    
+
     def produce_result(self):
-        self.out('solvation_energy', self.ctx.energy_difference)
-        
+        self.out("solvation_energy", self.ctx.energy_difference)
