@@ -153,6 +153,7 @@ usertests/
 .pyrightconfig.json
 .shellcheckrc
 .trunk/
+.pypirc
 
 *.gv
 *.gv.*
