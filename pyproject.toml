@@ -3,7 +3,7 @@ requires = ['flit_core >=3.4,<4']
 build-backend = 'flit_core.buildapi'
 
 [project]
-name = "aiida=environ"
+name = "aiida-environ"
 version = "1.0.0"
 description = "AiiDA plugin for Environ"
 readme = "README.md"
@@ -53,3 +53,6 @@ tests = [
 "environ.pw.relax" = "aiida_environ.workflows.pw.relax:EnvPwRelaxWorkChain"
 "environ.pw.solvation" = "aiida_environ.workflows.pw.solvation:PwSolvationWorkChain"
 "environ.pw.force_test" = "aiida_environ.workflows.pw.force_test:EnvPwForceTestWorkChain"
+
+[tool.flit.module]
+name = 'aiida_environ'
