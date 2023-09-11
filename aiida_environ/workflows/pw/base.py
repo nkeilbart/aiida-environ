@@ -73,24 +73,63 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         """Define the process specification."""
         # yapf: disable
         super().define(spec)
-        spec.expose_inputs(EnvPwCalculation, namespace='pw', exclude=('kpoints',))
-        spec.input('pw.metadata.options.resources', valid_type=dict, required=False)
-        spec.input('kpoints', valid_type=orm.KpointsData, required=False,
-            help='An explicit k-points list or mesh. Either this or `kpoints_distance` has to be provided.')
-        spec.input('kpoints_distance', valid_type=orm.Float, required=False,
-            help='The minimum desired distance in 1/Å between k-points in reciprocal space. The explicit k-points will '
-                 'be generated automatically by a calculation function based on the input structure.')
-        spec.input('kpoints_force_parity', valid_type=orm.Bool, required=False,
-            help='Optional input when constructing the k-points based on a desired `kpoints_distance`. Setting this to '
-                 '`True` will force the k-point mesh to have an even number of points along each lattice vector except '
-                 'for any non-periodic directions.') 
-        spec.input('pseudo_family', valid_type=orm.Str, required=False, validator=validate_pseudo_family,
-            help='[Deprecated: use `pw.pseudos` instead] An alternative to specifying the pseudo potentials manually in'
-                 ' `pseudos`: one can specify the name of an existing pseudo potential family and the work chain will '
-                 'generate the pseudos automatically based on the input structure.')
-        spec.input('automatic_parallelization', valid_type=orm.Dict, required=False,
-            help='When defined, the work chain will first launch an initialization calculation to determine the '
-                 'dimensions of the problem, and based on this it will try to set optimal parallelization flags.')
+        spec.expose_inputs(
+            EnvPwCalculation, 
+            namespace = 'pw', 
+            exclude = ('kpoints',)
+        )
+        spec.input(
+            'pw.metadata.options.resources', 
+            valid_type = dict, 
+            required = False
+        )
+        spec.input(
+            'kpoints', 
+            valid_type = orm.KpointsData, 
+            required = False,
+            help = ('An explicit k-points list or mesh. Either this or '
+                    '`kpoints_distance` has to be provided.')
+        )
+        spec.input(
+            'kpoints_distance', 
+            valid_type = orm.Float, 
+            required = False,
+            help = ('The minimum desired distance in 1/Å between k-points '
+                    'in reciprocal space. The explicit k-points will '
+                    'be generated automatically by a calculation function '
+                    'based on the input structure.')
+        )
+        spec.input(
+            'kpoints_force_parity', 
+            valid_type = orm.Bool, 
+            required = False,
+            help = ('Optional input when constructing the k-points based on '
+                    'a desired `kpoints_distance`. Setting this to `True` '
+                    'will force the k-point mesh to have an even number of '
+                    'points along each lattice vector except for any '
+                    'non-periodic directions.') 
+        )
+        spec.input(
+            'pseudo_family', 
+            valid_type = orm.Str, 
+            required = False, 
+            validator = validate_pseudo_family,
+            help = ('[Deprecated: use `pw.pseudos` instead] An alternative '
+                    'to specifying the pseudo potentials manually in '
+                    '`pseudos`: one can specify the name of an existing '
+                    'pseudo potential family and the work chain will '
+                    'generate the pseudos automatically based on the input '
+                    'structure.')
+        )
+        spec.input(
+            'automatic_parallelization', 
+            valid_type = orm.Dict, 
+            required = False,
+            help = ('When defined, the work chain will first launch an '
+                    'initialization calculation to determine the '
+                    'dimensions of the problem, and based on this it will '
+                    'try to set optimal parallelization flags.')
+        )
 
         spec.outline(
             cls.setup,
@@ -110,34 +149,84 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         )
 
         spec.expose_outputs(EnvPwCalculation)
-        spec.output('automatic_parallelization', valid_type=orm.Dict, required=False,
-            help='The results of the automatic parallelization analysis if performed.')
+        spec.output(
+            'automatic_parallelization', 
+            valid_type = orm.Dict, 
+            required = False,
+            help = ('The results of the automatic parallelization analysis ' 
+                    'if performed.')
+        )
 
-        spec.exit_code(201, 'ERROR_INVALID_INPUT_PSEUDO_POTENTIALS',
-            message='The explicit `pseudos` or `pseudo_family` could not be used to get the necessary pseudos.')
-        spec.exit_code(202, 'ERROR_INVALID_INPUT_KPOINTS',
-            message='Neither the `kpoints` nor the `kpoints_distance` input was specified.')
-        spec.exit_code(203, 'ERROR_INVALID_INPUT_RESOURCES',
-            message='Neither the `options` nor `automatic_parallelization` input was specified. '
-                    'This exit status has been deprecated as the check it corresponded to was incorrect.')
-        spec.exit_code(204, 'ERROR_INVALID_INPUT_RESOURCES_UNDERSPECIFIED',
-            message='The `metadata.options` did not specify both `resources.num_machines` and `max_wallclock_seconds`. '
-                    'This exit status has been deprecated as the check it corresponded to was incorrect.')
-        spec.exit_code(210, 'ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_MISSING_KEY',
-            message='Required key for `automatic_parallelization` was not specified.')
-        spec.exit_code(211, 'ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_UNRECOGNIZED_KEY',
-            message='Unrecognized keys were specified for `automatic_parallelization`.')
-        spec.exit_code(300, 'ERROR_UNRECOVERABLE_FAILURE',
-            message='The calculation failed with an unidentified unrecoverable error.')
-        spec.exit_code(310, 'ERROR_KNOWN_UNRECOVERABLE_FAILURE',
-            message='The calculation failed with a known unrecoverable error.')
-        spec.exit_code(320, 'ERROR_INITIALIZATION_CALCULATION_FAILED',
-            message='The initialization calculation failed.')
-        spec.exit_code(501, 'ERROR_IONIC_CONVERGENCE_REACHED_EXCEPT_IN_FINAL_SCF',
-            message='Then ionic minimization cycle converged but the thresholds are exceeded in the final SCF.')
-        spec.exit_code(710, 'WARNING_ELECTRONIC_CONVERGENCE_NOT_REACHED',
-            message='The electronic minimization cycle did not reach self-consistency, but `scf_must_converge` '
-                    'is `False` and/or `electron_maxstep` is 0.')
+        spec.exit_code(
+            201, 
+            'ERROR_INVALID_INPUT_PSEUDO_POTENTIALS',
+            message = ('The explicit `pseudos` or `pseudo_family` could not be '
+                       'used to get the necessary pseudos.')
+        )
+        spec.exit_code(
+            202, 
+            'ERROR_INVALID_INPUT_KPOINTS',
+            message = ('Neither the `kpoints` nor the `kpoints_distance` '
+                       'input was specified.')
+        )
+        spec.exit_code(
+            203, 
+            'ERROR_INVALID_INPUT_RESOURCES',
+            message = ('Neither the `options` nor `automatic_parallelization' 
+                       'input was specified. This exit status has been '
+                       'deprecated as the check it corresponded to was '
+                       'incorrect.')
+        )
+        spec.exit_code(
+            204, 
+            'ERROR_INVALID_INPUT_RESOURCES_UNDERSPECIFIED',
+            message = ('The `metadata.options` did not specify both '
+                       '`resources.num_machines` and `max_wallclock_seconds`. '
+                       'This exit status has been deprecated as the check it '
+                       'corresponded to was incorrect.')
+        )
+        spec.exit_code(
+            210, 
+            'ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_MISSING_KEY',
+            message = ('Required key for `automatic_parallelization` was '
+                       'not specified.')
+        )
+        spec.exit_code(
+            211, 
+            'ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_UNRECOGNIZED_KEY',
+            message = ('Unrecognized keys were specified for '
+                       '`automatic_parallelization`.')
+        )
+        spec.exit_code(
+            300, 
+            'ERROR_UNRECOVERABLE_FAILURE',
+            message = ('The calculation failed with an unidentified '
+                       'unrecoverable error.')
+        )
+        spec.exit_code(
+            310, 
+            'ERROR_KNOWN_UNRECOVERABLE_FAILURE',
+            message = ('The calculation failed with a known unrecoverable '
+                       'error.')
+        )
+        spec.exit_code(
+            320, 
+            'ERROR_INITIALIZATION_CALCULATION_FAILED',
+            message = 'The initialization calculation failed.'
+        )
+        spec.exit_code(
+            501, 
+            'ERROR_IONIC_CONVERGENCE_REACHED_EXCEPT_IN_FINAL_SCF',
+            message = ('Then ionic minimization cycle converged but the '
+                       'thresholds are exceeded in the final SCF.')
+        )
+        spec.exit_code(
+            710, 
+            'WARNING_ELECTRONIC_CONVERGENCE_NOT_REACHED',
+            message = ('The electronic minimization cycle did not reach '
+                       'self-consistency, but `scf_must_converge` is `False` '
+                       'and/or `electron_maxstep` is 0.')
+        )
         # yapf: enable
 
     @classmethod
@@ -153,11 +242,11 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         cls,
         code,
         structure,
-        protocol=None,
-        overrides=None,
-        electronic_type=ElectronicType.METAL,
-        spin_type=SpinType.NONE,
-        initial_magnetic_moments=None,
+        protocol = None,
+        overrides = None,
+        electronic_type = ElectronicType.METAL,
+        spin_type = SpinType.NONE,
+        initial_magnetic_moments = None,
         **_,
     ):
         """Return a builder prepopulated with inputs selected according to the chosen protocol.
