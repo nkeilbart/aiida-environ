@@ -241,8 +241,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                     namespace='vacuum'
                 )
             )
-            print(inputs)
-            print(self.inputs)
+            inputs.base.pw.parameters = self.inputs.parameters
             inputs.base.pw.structure = structure
             inputs.base.pw.pseudos = get_pseudos_from_structure(
                 structure,
