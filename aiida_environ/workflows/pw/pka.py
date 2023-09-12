@@ -191,6 +191,11 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         environ_input['ENVIRON']['env_surface_tension'] = 0.0
         vacuum['base']['pw']['environ_parameters'] = orm.Dict(dict=environ_input)  
 
+        # Initialize input parameters
+        parameters = inputs.parameters
+        inputs.vacuum['base']['pw']['parameters'] = parameters
+        inputs.solution['base']['pw']['parameters'] = parameters
+
         builder.vacuum = vacuum
         builder.solution = solution
         builder.structures = structures
