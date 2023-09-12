@@ -206,6 +206,7 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
         )
 
         base["pw"]["environ_parameters"] = orm.Dict(dict=environ["parameters"])
+        base_final_scf["pw"]["environ_parameters"] = orm.Dict(dict=environ["parameters"])
 
         base["pw"].pop("structure", None)
         base.pop("clean_workdir", None)
