@@ -11,6 +11,8 @@ from aiida.plugins import CalculationFactory, WorkflowFactory
 from aiida_quantumespresso.common.types import RelaxType
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 from aiida_quantumespresso.workflows.protocols.utils import ProtocolMixin
+from aiida.orm import load_group
+from aiida.orm.nodes.data.upf import get_pseudos_from_structure
 
 PwRelaxWorkChain = WorkflowFactory("environ.pw.relax")
 
@@ -64,6 +66,14 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             help = ('If `True`, work directories of all called calculation '
                     'will be cleaned at the end of execution.')
         )
+        spec.input(
+            'pseudo_family',
+            valid_type = orm.Str,
+            default = orm.Str('SSSP/1.1/PBE/precision'),
+            help = ('Choose which pseudopotential family library to use. '
+                    'Must be installed through aiida-pseudo.'
+            )
+        )
         spec.inputs.validator = validate_inputs
         spec.outline(
             cls.setup,
@@ -83,6 +93,11 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             'ERROR_ENVIRON_SOLUTION_CALCULATION_FAILED',
             message = 'the environ solution PwRelaxWorkChain failed'
         )
+        spec.exit_code(
+            405,
+            'PSEUDO_FAMILY_DOES_NOT_EXIST',
+            message = 'pseudo family does not exist'
+        )
         spec.output(
             'pKa',
             valid_type = orm.Dict,
@@ -100,6 +115,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         protocol: orm.Dict = None,
         overrides: orm.Dict = None,
         relax_type = RelaxType.POSITIONS_CELL,
+        pseudo_family = 'SSSP/1.1/PBE/precision'
         **kwargs,
     ):
         """
@@ -179,6 +195,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         builder.solution = solution
         builder.structures = structures
         builder.clean_workdir = orm.Bool(inputs["clean_workdir"])
+        builder.pseudo_family = pseudo_family
 
         return builder
 
@@ -186,6 +203,12 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         """Input validation and context setup."""
         self.ctx.vacuum_failed = True
         self.ctx.solution_failed = True
+
+        # Check if pseudo family exists
+        try:
+            pseudo_family = load_group(self.inputs.pseudo_family)
+        except:
+            return self.exit_codes.PSEUDO_FAMILY_DOES_NOT_EXIST
 
         return
 
@@ -203,7 +226,11 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                     namespace='vacuum'
                 )
             )
-            inputs.pw.structure = structure
+            inputs.base.pw.structure = structure
+            inputs.base.pw.pseudos = get_pseudos_from_structure(
+                structure,
+                self.inputs.pseudo_family
+            )
             future = self.submit(PwRelaxWorkChain, **inputs)
             self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
             self.to_context(**{f'vacuum.{e}': future})
@@ -240,6 +267,10 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 )
             )
             inputs.pw.structure = structure
+            inputs.base.pw.pseudos = get_pseudos_from_structure(
+                structure,
+                self.inputs.pseudo_family
+            )
             future = self.submit(PwRelaxWorkChain, **inputs)
             self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
             self.to_context(**{f'solution.{e}': future})
