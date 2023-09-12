@@ -119,7 +119,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         structures: orm.List,
         protocol: orm.Dict = None,
         overrides: orm.Dict = None,
-        relax_type = RelaxType.POSITIONS_CELL,
+        relax_type = RelaxType.POSITIONS,
         pseudo_family = 'SSSP/1.1/PBE/precision',
         clean_workdir: bool=True,
         **kwargs,
