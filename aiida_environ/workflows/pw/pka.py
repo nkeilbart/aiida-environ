@@ -77,7 +77,6 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         spec.input(
             'parameters',
             valid_type = orm.Dict,
-            default = None,
             help = ('Input parameters for pw calculations.')
         )
         spec.inputs.validator = validate_inputs
