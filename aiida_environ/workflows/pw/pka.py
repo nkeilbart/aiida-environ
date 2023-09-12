@@ -196,9 +196,9 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
 
         builder.vacuum = vacuum
         builder.solution = solution
-        builder.structures = structures
+        builder.structures = orm.List(structures)
         builder.clean_workdir = orm.Bool(clean_workdir)
-        builder.pseudo_family = pseudo_family
+        builder.pseudo_family = orm.Str(pseudo_family)
 
         return builder
 
