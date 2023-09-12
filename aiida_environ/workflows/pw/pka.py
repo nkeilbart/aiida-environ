@@ -121,6 +121,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         overrides: orm.Dict = None,
         relax_type = RelaxType.POSITIONS_CELL,
         pseudo_family = 'SSSP/1.1/PBE/precision',
+        clean_workdir: bool=True,
         **kwargs,
     ):
         """
@@ -138,19 +139,16 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         type_check(relax_type, RelaxType)
 
         args = (code, structures[0], protocol)
-        inputs = cls.get_protocol_inputs(protocol, overrides)
         builder = cls.get_builder()
 
         vacuum = PwRelaxWorkChain.get_builder_from_protocol(
             *args, 
-            overrides=inputs.get("base", None), 
-            relax_type=relax_type
+            relax_type=relax_type,
             **kwargs
         )
         solution = PwRelaxWorkChain.get_builder_from_protocol(
             *args, 
-            overrides=inputs.get("base", None), 
-            relax_type=relax_type
+            relax_type=relax_type,
             **kwargs
         )
 
@@ -196,15 +194,10 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         environ_input['ENVIRON']['env_surface_tension'] = 0.0
         vacuum['base']['pw']['environ_parameters'] = orm.Dict(dict=environ_input)  
 
-        # Initialize input parameters
-        parameters = inputs.parameters
-        inputs.vacuum['base']['pw']['parameters'] = parameters
-        inputs.solution['base']['pw']['parameters'] = parameters
-
         builder.vacuum = vacuum
         builder.solution = solution
         builder.structures = structures
-        builder.clean_workdir = orm.Bool(inputs["clean_workdir"])
+        builder.clean_workdir = orm.Bool(clean_workdir)
         builder.pseudo_family = pseudo_family
 
         return builder
