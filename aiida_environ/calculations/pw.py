@@ -24,12 +24,28 @@ class EnvPwCalculation(PwCalculation):
         """Define the process specification."""
         # yapf: disable
         super().define(spec)
-        spec.input('metadata.options.parser_name', valid_type=str, default='environ.pw')
-        spec.input('metadata.options.debug_filename', valid_type=str, default=cls._DEFAULT_DEBUG_FILE)
-        spec.input('environ_parameters', valid_type=orm.Dict,
-            help='The input parameters that are to be used to construct the input file.')
-        spec.input('external_charges', valid_type=EnvironChargeData, required=False,
-            help='External charges')
+        spec.input(
+            'metadata.options.parser_name', 
+            valid_type = str, 
+            default = 'environ.pw'
+        )
+        spec.input(
+            'metadata.options.debug_filename', 
+            valid_type = str, 
+            default = cls._DEFAULT_DEBUG_FILE
+        )
+        spec.input(
+            'environ_parameters', 
+            valid_type = orm.Dict,
+            help = ('The input parameters that are to be used to construct '
+                    'the input file.')
+        )
+        spec.input(
+            'external_charges', 
+            valid_type = EnvironChargeData, 
+            required = False,
+            help = 'External charges'
+        )
         # TODO add the EnvironDielectricData type too
         # spec.input('environ_dielectric', valid_type=EnvDielectricData, required=False,
         #    help='Dielectric regions')
