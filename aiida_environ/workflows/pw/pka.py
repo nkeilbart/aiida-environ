@@ -69,7 +69,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         spec.input(
             'pseudo_family',
             valid_type = orm.Str,
-            default = orm.Str('SSSP/1.1/PBE/precision'),
+            default = lambda: orm.Str('SSSP/1.1/PBE/precision'),
             help = ('Choose which pseudopotential family library to use. '
                     'Must be installed through aiida-pseudo.'
             )
@@ -190,6 +190,9 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         environ_input['ENVIRON']['env_pressure'] = 0.0
         environ_input['ENVIRON']['env_surface_tension'] = 0.0
         vacuum['base']['pw']['environ_parameters'] = orm.Dict(dict=environ_input)  
+
+        vacuum['base']['pw']['parameters'] = cls.inputs.parameters
+        solution['base']['pw']['parameters'] = cls.inputs.parameters
 
         builder.vacuum = vacuum
         builder.solution = solution
