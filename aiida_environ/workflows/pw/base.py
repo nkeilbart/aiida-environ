@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Workchain to run a Quantum ESPRESSO pw.x calculation with automated error handling and restarts."""
 from aiida import orm
+from aiida.orm import load_group
 from aiida.common import AttributeDict, exceptions
 from aiida.common.lang import type_check
 from aiida.engine import (
@@ -19,9 +20,7 @@ from aiida_quantumespresso.calculations.functions.create_kpoints_from_distance i
 from aiida_quantumespresso.common.types import ElectronicType, RestartType, SpinType
 from aiida_quantumespresso.utils.defaults.calculation import pw as qe_defaults
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs, update_mapping
-from aiida_quantumespresso.utils.pseudopotential import (
-    validate_and_prepare_pseudos_inputs,
-)
+from aiida.orm.nodes.data.upf import get_pseudos_from_structure
 from aiida_quantumespresso.utils.resources import (
     cmdline_remove_npools,
     create_scheduler_resources,
@@ -420,20 +419,31 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         self.ctx.inputs.kpoints = kpoints
 
     def validate_pseudos(self):
-        """Validate the inputs related to pseudopotentials.
-
-        Either the pseudo potentials should be defined explicitly in the `pseudos` namespace, or alternatively, a family
-        can be defined in `pseudo_family` that will be used together with the input `StructureData` to generate the
-        required mapping.
         """
+        Validate the inputs related to pseudopotentials.
+
+        Either the pseudo potentials should be defined explicitly in the 
+        `pseudos` namespace, or alternatively, a family can be defined in 
+        `pseudo_family` that will be used together with the input `StructureData` 
+        to generate the required mapping.
+        """
+        from aiida_quantumespresso.workflows.protocols.utils import recursive_merge
+
         structure = self.ctx.inputs.structure
-        pseudos = self.ctx.inputs.get("pseudos", None)
+        pseudos = self.ctx.inputs.get("pseudos", {})
         pseudo_family = self.inputs.get("pseudo_family", None)
 
         try:
-            self.ctx.inputs.pseudos = validate_and_prepare_pseudos_inputs(
-                structure, pseudos, pseudo_family
+            pseudo_family = load_group(pseudo_family)
+        except:
+            return self.exit_codes.PSEUDO_FAMILY_DOES_NOT_EXIST
+        
+        try:
+            pseudo_family = get_pseudos_from_structure(
+                structure,
+                self.inputs.pseudo_family
             )
+            self.ctx.inputs.pseudos = recursive_merge(pseudos, pseudo_family)
         except ValueError as exception:
             self.report(f"{exception}")
             return self.exit_codes.ERROR_INVALID_INPUT_PSEUDO_POTENTIALS
