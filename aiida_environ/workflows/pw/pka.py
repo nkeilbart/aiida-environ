@@ -74,6 +74,12 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                     'Must be installed through aiida-pseudo.'
             )
         )
+        spec.input(
+            'parameters',
+            valid_type = orm.Dict,
+            default = None,
+            help = ('Input parameters for pw calculations.')
+        )
         spec.inputs.validator = validate_inputs
         spec.outline(
             cls.setup,
