@@ -16,40 +16,13 @@ PwRelaxWorkChain = WorkflowFactory("environ.pw.relax")
 
 def validate_inputs(inputs, _):
     """Validate the top level namespace."""
-    parameters = inputs["base"]["pw"]["parameters"].get_dict()
+    parameters = inputs["vacuum"]["base"]["pw"]["parameters"].get_dict()
 
     if "relaxation_scheme" not in inputs and "calculation" not in parameters.get(
         "CONTROL", {}
     ):
         return "The parameters in `base.pw.parameters` do not specify the required key `CONTROL.calculation`."
 
-
-def validate_final_scf(value, _):
-    """Validate the final scf input."""
-    if isinstance(value, orm.Bool) and value:
-        import warnings
-
-        from aiida.common.warnings import AiidaDeprecationWarning
-
-        warnings.warn(
-            "this input is deprecated and will be removed. If you want to run a final scf, specify the inputs that "
-            "should be used in the `base_final_scf` namespace.",
-            AiidaDeprecationWarning,
-        )
-
-
-def validate_relaxation_scheme(value, _):
-    """Validate the relaxation scheme input."""
-    if value:
-        import warnings
-
-        from aiida.common.warnings import AiidaDeprecationWarning
-
-        warnings.warn(
-            "the `relaxation_scheme` input is deprecated and will be removed. Use the `get_builder_from_protocol` "
-            "instead to obtain a prepopulated builder using the `RelaxType` enum.",
-            AiidaDeprecationWarning,
-        )
 
 class pKaWorkChain(ProtocolMixin, WorkChain):
     """
@@ -101,35 +74,32 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             cls.results,
         )
         spec.exit_code(
-            401, 
-            'ERROR_SUB_PROCESS_FAILED_RELAX',
-            message = 'the relax PwBaseWorkChain sub process failed'
+            403, 
+            'ERROR_ENVIRON_VACUUM_CALCULATION_FAILED',
+            message = 'the environ vacuum PwRelaxWorkChain failed'
         )
         spec.exit_code(
-            402, 
-            'ERROR_SUB_PROCESS_FAILED_FINAL_SCF',
-            message = 'the final scf PwBaseWorkChain sub process failed'
-        )
-        spec.expose_outputs(
-            PwRelaxWorkChain, 
-            exclude = ('output_structure',)
+            404, 
+            'ERROR_ENVIRON_SOLUTION_CALCULATION_FAILED',
+            message = 'the environ solution PwRelaxWorkChain failed'
         )
         spec.output(
-            'output_structures', 
-            valid_type = orm.StructureData, 
+            'pKa',
+            valid_type = orm.Dict,
             required = False,
-            help = 'The successfully relaxed structure.'
+            help = ('Dictionary of results for both vacuum and solution '
+                    'calculations.')
         )
         # yapf: enable
 
     @classmethod
     def get_builder_from_protocol(
         cls,
-        code,
-        structures,
-        protocol=None,
-        overrides=None,
-        relax_type=RelaxType.POSITIONS_CELL,
+        code: orm.Code,
+        structures: orm.List,
+        protocol: orm.Dict = None,
+        overrides: orm.Dict = None,
+        relax_type = RelaxType.POSITIONS_CELL,
         **kwargs,
     ):
         """
@@ -150,45 +120,63 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         inputs = cls.get_protocol_inputs(protocol, overrides)
         builder = cls.get_builder()
 
-        base = PwRelaxWorkChain.get_builder_from_protocol(
-            *args, overrides=inputs.get("base", None), **kwargs
+        vacuum = PwRelaxWorkChain.get_builder_from_protocol(
+            *args, 
+            overrides=inputs.get("base", None), 
+            relax_type=relax_type
+            **kwargs
+        )
+        solution = PwRelaxWorkChain.get_builder_from_protocol(
+            *args, 
+            overrides=inputs.get("base", None), 
+            relax_type=relax_type
+            **kwargs
         )
 
-        base["pw"].pop("structure", None)
-        base.pop("clean_workdir", None)
+        vacuum["base"]["pw"].pop("structure", None)
+        vacuum.pop("clean_workdir", None)
+        solution["base"]["pw"].pop("structure", None)
+        solution.pop("clean_workdir", None)        
 
-        # Quantum ESPRESSO currently only supports optimization of the volume for simple cubic systems. It requires
-        # to set `ibrav=1` or the code will except.
-        if relax_type in (RelaxType.VOLUME, RelaxType.POSITIONS_VOLUME):
-            raise ValueError(f"relax type `{relax_type} is not yet supported.")
+        # Declare the environ.in file input
+        environ_input = {
+            'ENVIRON': {
+                'env_electrostatic': True,
+                'env_confine': 0.0,
+                'environ_restart': False,
+                'env_static_permittivity': 78.3,
+                'env_pressure': -0.35,
+                'env_surface_tension': 50,
+                'verbose': 1,
+                'environ_thr': 100
+            },
+            'BOUNDARY': {
+                'alpha': 1.12,
+                'radius_mode': 'muff',
+                'solvent_mode': 'ionic',
+                'field_aware': True,
+                'field_factor': 0.24,
+                'field_asymmetry': 0.32,
+                'field_max': 6,
+                'field_min': 2,
+                'deriv_method': 'lowmem'
+            },
+            'ELECTROSTATIC': {
+                'auxiliary': 'none',
+                'pbc_correction': 'parabolic',
+                'pbc_dim': 0,
+                'solver': 'cg',
+                'tol': 1.E-10
+            }
+        }
+        solution['base']['pw']['environ_parameters'] = orm.Dict(dict=environ_input)
+        environ_input['ENVIRON']['env_static_permittivity'] = 1.0
+        environ_input['ENVIRON']['env_pressure'] = 0.0
+        environ_input['ENVIRON']['env_surface_tension'] = 0.0
+        vacuum['base']['pw']['environ_parameters'] = orm.Dict(dict=environ_input)  
 
-        if relax_type in (RelaxType.VOLUME, RelaxType.SHAPE, RelaxType.CELL):
-            base.pw.settings = orm.Dict(
-                dict=pKaWorkChain._fix_atomic_positions(
-                    structure, base.pw.settings
-                )
-            )
-
-        if relax_type is RelaxType.NONE:
-            base.pw.parameters["CONTROL"]["calculation"] = "scf"
-            base.pw.parameters.delete_attribute("CELL")
-
-        elif relax_type is RelaxType.POSITIONS:
-            base.pw.parameters["CONTROL"]["calculation"] = "relax"
-            base.pw.parameters.delete_attribute("CELL")
-        else:
-            base.pw.parameters["CONTROL"]["calculation"] = "vc-relax"
-
-        if relax_type in (RelaxType.VOLUME, RelaxType.POSITIONS_VOLUME):
-            base.pw.parameters["CELL"]["cell_dofree"] = "volume"
-
-        if relax_type in (RelaxType.SHAPE, RelaxType.POSITIONS_SHAPE):
-            base.pw.parameters["CELL"]["cell_dofree"] = "shape"
-
-        if relax_type in (RelaxType.CELL, RelaxType.POSITIONS_CELL):
-            base.pw.parameters["CELL"]["cell_dofree"] = "all"
-
-        builder.base = base
+        builder.vacuum = vacuum
+        builder.solution = solution
         builder.structures = structures
         builder.clean_workdir = orm.Bool(inputs["clean_workdir"])
 
@@ -196,82 +184,10 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
 
     def setup(self):
         """Input validation and context setup."""
-        self.ctx.current_number_of_bands = None
-        self.ctx.current_cell_volume = None
-        self.ctx.is_converged = False
-        self.ctx.iteration = 0
+        self.ctx.vacuum_failed = True
+        self.ctx.solution_failed = True
 
-        self.ctx.relax_inputs = AttributeDict(
-            self.exposed_inputs(PwRelaxWorkChain, namespace="base")
-        )
-        self.ctx.relax_inputs.pw.parameters = (
-            self.ctx.relax_inputs.pw.parameters.get_dict()
-        )
-
-        self.ctx.relax_inputs.pw.parameters.setdefault("CONTROL", {})
-        self.ctx.relax_inputs.pw.parameters["CONTROL"]["restart_mode"] = "from_scratch"
-
-        # Adjust the inputs for the chosen relaxation scheme
-        if "relaxation_scheme" in self.inputs:
-            if self.inputs.relaxation_scheme.value in ("relax", "vc-relax"):
-                self.ctx.relax_inputs.pw.parameters["CONTROL"][
-                    "calculation"
-                ] = self.inputs.relaxation_scheme.value
-            else:
-                raise ValueError("unsupported value for the `relaxation_scheme` input.")
-
-        # Set the meta_convergence and add it to the context
-        self.ctx.meta_convergence = self.inputs.meta_convergence.value
-        volume_cannot_change = (
-            self.ctx.relax_inputs.pw.parameters["CONTROL"]["calculation"]
-            in ("scf", "relax")
-            or self.ctx.relax_inputs.pw.parameters.get("CELL", {}).get(
-                "cell_dofree", None
-            )
-            == "shape"
-        )
-        if self.ctx.meta_convergence and volume_cannot_change:
-            self.report(
-                "No change in volume possible for the provided base input parameters. Meta convergence is turned off."
-            )
-            self.ctx.meta_convergence = False
-
-        # Add the final scf inputs to the context if a final scf should be run
-        if self.inputs.final_scf and "base_final_scf" in self.inputs:
-            raise ValueError(
-                "cannot specify `final_scf=True` and `base_final_scf` at the same time."
-            )
-        elif self.inputs.final_scf:
-            self.ctx.final_scf_inputs = AttributeDict(
-                self.exposed_inputs(PwBaseWorkChain, namespace="base")
-            )
-        elif "base_final_scf" in self.inputs:
-            self.ctx.final_scf_inputs = AttributeDict(
-                self.exposed_inputs(PwBaseWorkChain, namespace="base_final_scf")
-            )
-
-        if "final_scf_inputs" in self.ctx:
-            if self.ctx.relax_inputs.pw.parameters["CONTROL"]["calculation"] == "scf":
-                self.report(
-                    "Work chain will not run final SCF when `calculation` is set to `scf` for the relaxation "
-                    "`PwBaseWorkChain`."
-                )
-                self.ctx.pop("final_scf_inputs")
-
-            else:
-                self.ctx.final_scf_inputs.pw.parameters = (
-                    self.ctx.final_scf_inputs.pw.parameters.get_dict()
-                )
-
-                self.ctx.final_scf_inputs.pw.parameters.setdefault("CONTROL", {})
-                self.ctx.final_scf_inputs.pw.parameters["CONTROL"][
-                    "calculation"
-                ] = "scf"
-                self.ctx.final_scf_inputs.pw.parameters["CONTROL"][
-                    "restart_mode"
-                ] = "from_scratch"
-                self.ctx.final_scf_inputs.pw.parameters.pop("CELL", None)
-                self.ctx.final_scf_inputs.metadata.call_link_label = "final_scf"
+        return
 
     def run_vacuum(self):
         """
@@ -302,7 +218,10 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
 
             if workchain.is_failed:
                 self.report(f'`PwRelaxWorkChain` failed for vacuum calculation {key}.')
-                return self.exit_codes.ERROR_SUB_PROCESS_FAILED_RELAX
+                return self.exit_codes.ERROR_ENVIRON_VACUUM_CALCULATION_FAILED
+            
+            else:
+                self.ctx.vacuum_failed = False
 
         return
 
@@ -335,30 +254,31 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
 
             if workchain.is_failed:
                 self.report(f'`PwRelaxWorkChain` failed for solution calculation {key}.')
-                return self.exit_codes.ERROR_SUB_PROCESS_FAILED_RELAX
+                return self.exit_codes.ERROR_ENVIRON_SOLUTION_CALCULATION_FAILED
+            
+            else:
+                self.ctx.solution_failed = False
 
         return
 
     def results(self):
         """Attach the output parameters and structure of the last workchain to the outputs."""
-        if (
-            self.ctx.is_converged
-            and self.ctx.iteration <= self.inputs.max_meta_convergence_iterations.value
-        ):
-            self.report(f"workchain completed after {self.ctx.iteration} iterations")
-        else:
-            self.report("maximum number of meta convergence iterations exceeded")
+        if not self.ctx.vacuum_failed and not self.ctx.solution_failed:
+            self.report(f"pka workchain completed")
 
-        # Get the latest relax workchain and pass the outputs
-        final_relax_workchain = self.ctx.workchains[-1]
+        # Get results for all structures for both vacuum and solution calculations
+        results = {
+            'vacuum': {},
+            'solution': {}
+        }
+        for e, v in self.ctx.vacuum.items():
+            results['vacuum'][e] = v
+        for e, s in self.ctx.solution.items():
+            results['solution'][e] = s
 
-        if self.inputs.base.pw.parameters["CONTROL"]["calculation"] != "scf":
-            self.out("output_structure", final_relax_workchain.outputs.output_structure)
+        results = orm.Dict(dict=results)
 
-        try:
-            self.out_many(self.exposed_outputs(self.ctx.workchain_scf, PwBaseWorkChain))
-        except AttributeError:
-            self.out_many(self.exposed_outputs(final_relax_workchain, PwBaseWorkChain))
+        self.out("pKa", results)
 
     def on_terminated(self):
         """Clean the working directories of all child calculations if `clean_workdir=True` in the inputs."""
@@ -382,15 +302,3 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             self.report(
                 f"cleaned remote folders of calculations: {' '.join(map(str, cleaned_calcs))}"
             )
-
-    @staticmethod
-    def _fix_atomic_positions(structure, settings):
-        """Fix the atomic positions, by setting the `FIXED_COORDS` key in the `settings` input node."""
-        if settings is not None:
-            settings = settings.get_dict()
-        else:
-            settings = {}
-
-        settings["FIXED_COORDS"] = [[True, True, True]] * len(structure.sites)
-
-        return settings
