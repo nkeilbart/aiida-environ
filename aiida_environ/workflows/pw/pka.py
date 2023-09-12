@@ -191,9 +191,6 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         environ_input['ENVIRON']['env_surface_tension'] = 0.0
         vacuum['base']['pw']['environ_parameters'] = orm.Dict(dict=environ_input)  
 
-        vacuum['base']['pw']['parameters'] = cls.inputs.parameters
-        solution['base']['pw']['parameters'] = cls.inputs.parameters
-
         builder.vacuum = vacuum
         builder.solution = solution
         builder.structures = structures
@@ -212,6 +209,11 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             pseudo_family = load_group(self.inputs.pseudo_family)
         except:
             return self.exit_codes.PSEUDO_FAMILY_DOES_NOT_EXIST
+        
+        # Initialize input parameters
+        parameters = self.inputs.parameters
+        self.inputs.vacuum['base']['pw']['parameters'] = parameters
+        self.inputs.solution['base']['pw']['parameters'] = parameters
 
         return
 
