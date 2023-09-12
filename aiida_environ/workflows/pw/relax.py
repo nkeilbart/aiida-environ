@@ -163,6 +163,14 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
         # yapf: enable
 
     @classmethod
+    def get_protocol_filepath(cls):
+        """Return ``pathlib.Path`` to the ``.yaml`` file that defines the protocols."""
+        from importlib_resources import files
+
+        from ..protocols import pw as pw_protocols
+        return files(pw_protocols) / 'base.yaml'
+
+    @classmethod
     def get_builder_from_protocol(
         cls,
         code,
