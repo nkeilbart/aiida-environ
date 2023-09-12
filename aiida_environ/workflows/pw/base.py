@@ -19,14 +19,7 @@ from aiida_quantumespresso.calculations.functions.create_kpoints_from_distance i
 )
 from aiida_quantumespresso.common.types import ElectronicType, RestartType, SpinType
 from aiida_quantumespresso.utils.defaults.calculation import pw as qe_defaults
-from aiida_quantumespresso.utils.mapping import prepare_process_inputs, update_mapping
 from aiida.orm.nodes.data.upf import get_pseudos_from_structure
-from aiida_quantumespresso.utils.resources import (
-    cmdline_remove_npools,
-    create_scheduler_resources,
-    get_default_options,
-    get_pw_parallelization_parameters,
-)
 from aiida_quantumespresso.workflows.protocols.utils import ProtocolMixin
 
 EnvPwCalculation = CalculationFactory("environ.pw")
@@ -120,25 +113,11 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
                     'generate the pseudos automatically based on the input '
                     'structure.')
         )
-        spec.input(
-            'automatic_parallelization', 
-            valid_type = orm.Dict, 
-            required = False,
-            help = ('When defined, the work chain will first launch an '
-                    'initialization calculation to determine the '
-                    'dimensions of the problem, and based on this it will '
-                    'try to set optimal parallelization flags.')
-        )
 
         spec.outline(
             cls.setup,
             cls.validate_kpoints,
             cls.validate_pseudos,
-            if_(cls.should_run_init)(
-                cls.validate_init_inputs,
-                cls.run_init,
-                cls.inspect_init,
-            ),
             while_(cls.should_run_process)(
                 cls.prepare_process,
                 cls.run_process,
@@ -148,13 +127,6 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         )
 
         spec.expose_outputs(EnvPwCalculation)
-        spec.output(
-            'automatic_parallelization', 
-            valid_type = orm.Dict, 
-            required = False,
-            help = ('The results of the automatic parallelization analysis ' 
-                    'if performed.')
-        )
 
         spec.exit_code(
             201, 
@@ -183,18 +155,6 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
                        '`resources.num_machines` and `max_wallclock_seconds`. '
                        'This exit status has been deprecated as the check it '
                        'corresponded to was incorrect.')
-        )
-        spec.exit_code(
-            210, 
-            'ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_MISSING_KEY',
-            message = ('Required key for `automatic_parallelization` was '
-                       'not specified.')
-        )
-        spec.exit_code(
-            211, 
-            'ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_UNRECOGNIZED_KEY',
-            message = ('Unrecognized keys were specified for '
-                       '`automatic_parallelization`.')
         )
         spec.exit_code(
             300, 
@@ -488,133 +448,6 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
             self.ctx.inputs.parameters["ELECTRONS"].pop("startingpot", None)
             self.ctx.inputs.parameters["ELECTRONS"]["startingwfc"] = "file"
             self.ctx.inputs.parent_folder = parent_folder
-
-    def should_run_init(self):
-        """Return whether an initialization calculation should be run.
-
-        :return: boolean, `True` if `automatic_parallelization` was specified in the inputs, `False` otherwise.
-        """
-        return "automatic_parallelization" in self.inputs
-
-    def validate_init_inputs(self):
-        """Validate the inputs that are required for the initialization calculation.
-
-        The `automatic_parallelization` input expects a `Dict` node with the following keys:
-
-            * max_wallclock_seconds
-            * target_time_seconds
-            * max_num_machines
-
-        If any of these keys are not set or any superfluous keys are specified, the workchain will abort.
-        """
-        parallelization = self.inputs.automatic_parallelization.get_dict()
-
-        expected_keys = [
-            "max_wallclock_seconds",
-            "target_time_seconds",
-            "max_num_machines",
-        ]
-        received_keys = [(key, parallelization.get(key, None)) for key in expected_keys]
-        remaining_keys = [
-            key for key in parallelization.keys() if key not in expected_keys
-        ]
-
-        for key, value in [
-            (key, value) for key, value in received_keys if value is None
-        ]:
-            self.report(
-                f'required key "{key}" in automatic_parallelization input not found'
-            )
-            return (
-                self.exit_codes.ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_MISSING_KEY
-            )
-
-        if remaining_keys:
-            self.report(
-                f"detected unrecognized keys in the automatic_parallelization input: {' '.join(remaining_keys)}"
-            )
-            return (
-                self.exit_codes.ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_UNRECOGNIZED_KEY
-            )
-
-        # Add the calculation mode to the automatic parallelization dictionary
-        self.ctx.automatic_parallelization = {
-            "max_wallclock_seconds": parallelization["max_wallclock_seconds"],
-            "target_time_seconds": parallelization["target_time_seconds"],
-            "max_num_machines": parallelization["max_num_machines"],
-            "calculation_mode": self.ctx.inputs.parameters["CONTROL"]["calculation"],
-        }
-
-        options = self.ctx.inputs.metadata["options"]
-        options.setdefault("resources", {})["num_machines"] = parallelization[
-            "max_num_machines"
-        ]
-        options["max_wallclock_seconds"] = parallelization["max_wallclock_seconds"]
-
-    def run_init(self):
-        """Run an initialization `EnvPwCalculation` that will exit after the preamble.
-
-        In the preamble, all the relevant dimensions of the problem are computed which allows us to make an estimate of
-        the required resources and what parallelization flags need to be set.
-        """
-        inputs = self.ctx.inputs
-
-        # Set the initialization flag and the initial default options
-        inputs.settings["ONLY_INITIALIZATION"] = True
-        inputs.metadata["options"] = update_mapping(
-            inputs.metadata["options"], get_default_options()
-        )
-
-        # Prepare the final input dictionary
-        inputs = prepare_process_inputs(EnvPwCalculation, inputs)
-        running = self.submit(EnvPwCalculation, **inputs)
-
-        self.report(f"launching initialization {running.pk}<{self.ctx.process_name}>")
-
-        return ToContext(calculation_init=running)
-
-    def inspect_init(self):
-        """Use the initialization `EnvPwCalculation` to determine the required resource and parallelization settings."""
-        calculation = self.ctx.calculation_init
-
-        if not calculation.is_finished_ok:
-            return self.exit_codes.ERROR_INITIALIZATION_CALCULATION_FAILED
-
-        # Get automated parallelization settings
-        parallelization = get_pw_parallelization_parameters(
-            calculation, **self.ctx.automatic_parallelization
-        )
-
-        # Note: don't do this at home, we are losing provenance here. This should be done by a calculation function
-        node = orm.Dict(dict=parallelization).store()
-        self.out("automatic_parallelization", node)
-        self.report(
-            f"results of automatic parallelization in {node.__class__.__name__}<{node.pk}>"
-        )
-
-        options = self.ctx.inputs.metadata["options"]
-        base_resources = options.get("resources", {})
-        goal_resources = parallelization["resources"]
-
-        scheduler = calculation.computer.get_scheduler()
-        resources = create_scheduler_resources(
-            scheduler, base_resources, goal_resources
-        )
-
-        cmdline = self.ctx.inputs.settings.get("cmdline", [])
-        cmdline = cmdline_remove_npools(cmdline)
-        cmdline.extend(["-nk", str(parallelization["npools"])])
-
-        # Set the new cmdline setting and resource options
-        self.ctx.inputs.settings["cmdline"] = cmdline
-        self.ctx.inputs.metadata["options"] = update_mapping(
-            options, {"resources": resources}
-        )
-
-        # Remove the only initialization flag
-        self.ctx.inputs.settings.pop("ONLY_INITIALIZATION")
-
-        return
 
     def prepare_process(self):
         """Prepare the inputs for the next calculation."""
