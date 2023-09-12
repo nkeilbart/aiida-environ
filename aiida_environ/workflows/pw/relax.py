@@ -195,6 +195,7 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
 
         args = (code, structure, protocol)
         inputs = cls.get_protocol_inputs(protocol, overrides)
+        environ = inputs.get("environ", None)
         builder = cls.get_builder()
 
         base = PwBaseWorkChain.get_builder_from_protocol(
@@ -203,6 +204,8 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
         base_final_scf = PwBaseWorkChain.get_builder_from_protocol(
             *args, overrides=inputs.get("base_final_scf", None), **kwargs
         )
+
+        base.environ_parameters = environ.parameters
 
         base["pw"].pop("structure", None)
         base.pop("clean_workdir", None)
