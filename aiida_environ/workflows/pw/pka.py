@@ -74,11 +74,6 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                     'Must be installed through aiida-pseudo.'
             )
         )
-        spec.input(
-            'parameters',
-            valid_type = orm.Dict,
-            help = ('Input parameters for pw calculations.')
-        )
         spec.inputs.validator = validate_inputs
         spec.outline(
             cls.setup,
@@ -212,11 +207,6 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             pseudo_family = load_group(self.inputs.pseudo_family)
         except:
             return self.exit_codes.PSEUDO_FAMILY_DOES_NOT_EXIST
-        
-        # Initialize input parameters
-        parameters = self.inputs.parameters
-        self.inputs.vacuum['base']['pw']['parameters'] = parameters
-        self.inputs.solution['base']['pw']['parameters'] = parameters
 
         return
 
@@ -234,7 +224,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                     namespace='vacuum'
                 )
             )
-            inputs.base.pw.parameters = self.inputs.parameters
+            
             inputs.base.pw.structure = structure
             inputs.base.pw.pseudos = get_pseudos_from_structure(
                 structure,
