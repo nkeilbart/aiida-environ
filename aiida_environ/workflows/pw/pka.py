@@ -115,7 +115,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         protocol: orm.Dict = None,
         overrides: orm.Dict = None,
         relax_type = RelaxType.POSITIONS_CELL,
-        pseudo_family = 'SSSP/1.1/PBE/precision'
+        pseudo_family = 'SSSP/1.1/PBE/precision',
         **kwargs,
     ):
         """
