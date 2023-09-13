@@ -231,6 +231,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             inputs.base.pw.pseudos = self.ctx.pseudo_family.get_pseudos(
                 structure=structure
             )
+            inputs.base.pw.pseudo_family = self.inputs.pseudo_family.value
             future = self.submit(PwRelaxWorkChain, **inputs)
             self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
             self.to_context(**{f'vacuum.{key}': future})
@@ -270,6 +271,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             inputs.base.pw.pseudos = self.ctx.pseudo_family.get_pseudos(
                 structure=structure
             )
+            inputs.base.pw.pseudo_family = self.inputs.pseudo_family.value
             future = self.submit(PwRelaxWorkChain, **inputs)
             self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
             self.to_context(**{f'solution.{key}': future})
