@@ -205,6 +205,13 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         except:
             self.report(f'failed to load pseudo family {family_name}')
             return self.exit_codes.PSEUDO_FAMILY_DOES_NOT_EXIST
+        
+        # Initialize results for both vacuum and solution calculations
+        results = {
+            'vacuum': {},
+            'solution': {}
+        }
+        self.ctx.results = results
 
         return
 
@@ -229,6 +236,9 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 structure=structure
             )
             inputs.base.pw.pseudo_family = self.inputs.pseudo_family
+
+            self.ctx.results['vacuum'][key]={}
+
             future = self.submit(PwRelaxWorkChain, **inputs)
             self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
             self.to_context(**{f'vacuum.{key}': future})
@@ -245,8 +255,11 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 self.report(f'`PwRelaxWorkChain` failed for vacuum calculation {key}.')
                 return self.exit_codes.ERROR_ENVIRON_VACUUM_CALCULATION_FAILED
             
-            else:
-                self.ctx.vacuum_failed = False
+            # Add final structure to results
+            structure = workchain.outputs.output_structure
+            self.ctx.results['vacuum'][key]['structure'] = structure
+            
+        self.ctx.vacuum_failed = False
 
         return
 
@@ -270,6 +283,9 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 structure=structure
             )
             inputs.base.pw.pseudo_family = self.inputs.pseudo_family
+
+            self.ctx.results['solution'][key]={}
+
             future = self.submit(PwRelaxWorkChain, **inputs)
             self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
             self.to_context(**{f'solution.{key}': future})
@@ -286,8 +302,11 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 self.report(f'`PwRelaxWorkChain` failed for solution calculation {key}.')
                 return self.exit_codes.ERROR_ENVIRON_SOLUTION_CALCULATION_FAILED
             
-            else:
-                self.ctx.solution_failed = False
+            # Add final structure to results
+            structure = workchain.outputs.output_structure
+            self.ctx.results['solution'][key]['structure'] = structure
+            
+        self.ctx.solution_failed = False
 
         return
 
@@ -296,16 +315,15 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         if not self.ctx.vacuum_failed and not self.ctx.solution_failed:
             self.report(f"pka workchain completed")
 
-        # Get results for all structures for both vacuum and solution calculations
-        results = {
-            'vacuum': {},
-            'solution': {}
-        }
-        for e, v in self.ctx.vacuum.items():
-            results['vacuum'][e] = v
-        for e, s in self.ctx.solution.items():
-            results['solution'][e] = s
+        results = self.ctx.results
 
+        for e, v in self.ctx.vacuum.items():
+            output = v.outputs.output_parameters.get_dict()
+            results['vacuum'][e]['output'] = output
+        for e, s in self.ctx.solution.items():
+            output = s.outputs.output_parameters.get_dict()
+            results['solution'][e]['output'] = output
+            
         results = orm.Dict(dict=results)
         results.store()
 
