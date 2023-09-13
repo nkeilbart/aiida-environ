@@ -394,7 +394,7 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         pseudo_family = self.inputs.get("pseudo_family", None)
 
         try:
-            pseudo_family = load_group(pseudo_family)
+            pseudo_family = load_group(pseudo_family.value)
         except:
             return self.exit_codes.PSEUDO_FAMILY_DOES_NOT_EXIST
         
