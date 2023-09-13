@@ -203,9 +203,11 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         self.ctx.solution_failed = True
 
         # Check if pseudo family exists
+        family_name = self.inputs.pseudo_family.value
         try:
-            pseudo_family = load_group(self.inputs.pseudo_family)
+            pseudo_family = load_group(family_name)
         except:
+            self.report(f'failed to load pseudo family {family_name}')
             return self.exit_codes.PSEUDO_FAMILY_DOES_NOT_EXIST
 
         return
