@@ -391,22 +391,24 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
 
         structure = self.ctx.inputs.structure
         pseudos = self.ctx.inputs.get("pseudos", {})
-        pseudo_family = self.inputs.get("pseudo_family", None)
+        if not pseudos:
+            pseudo_family = self.inputs.get("pseudo_family", None)
+            self.report(pseudo_family.value)
 
-        try:
-            pseudo_family = load_group(pseudo_family.value)
-        except:
-            return self.exit_codes.PSEUDO_FAMILY_DOES_NOT_EXIST
+            try:
+                pseudo_family = load_group(pseudo_family.value)
+            except:
+                return self.exit_codes.PSEUDO_FAMILY_DOES_NOT_EXIST
         
-        try:
-            pseudo_family = get_pseudos_from_structure(
-                structure,
-                self.inputs.pseudo_family
-            )
-            self.ctx.inputs.pseudos = recursive_merge(pseudos, pseudo_family)
-        except ValueError as exception:
-            self.report(f"{exception}")
-            return self.exit_codes.ERROR_INVALID_INPUT_PSEUDO_POTENTIALS
+            try:
+                pseudo_family = pseudo_family.get_pseudos(
+                    structure=structure,
+                )
+                pseudos = recursive_merge(pseudos, pseudo_family)
+            except ValueError as exception:
+                self.report(f"{exception}")
+                return self.exit_codes.ERROR_INVALID_INPUT_PSEUDO_POTENTIALS
+        self.ctx.inputs.pseudos = pseudos
 
     def set_max_seconds(self, max_wallclock_seconds):
         """Set the `max_seconds` to a fraction of `max_wallclock_seconds` option to prevent out-of-walltime problems.
