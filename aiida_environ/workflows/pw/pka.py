@@ -98,7 +98,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             'PSEUDO_FAMILY_DOES_NOT_EXIST',
             message = 'pseudo family does not exist'
         )
-        spec.output(
+        spec.output_namespace(
             'pKa',
             valid_type = orm.Dict,
             required = False,
@@ -323,7 +323,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         for e, s in self.ctx.solution.items():
             output = s.outputs.output_parameters.get_dict()
             results['solution'][e]['output'] = output
-            
+
         results = orm.Dict(dict=results)
         results.store()
 
