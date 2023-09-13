@@ -393,7 +393,7 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         pseudos = self.ctx.inputs.get("pseudos", {})
         if not pseudos:
             pseudo_family = self.inputs.get("pseudo_family", None)
-            self.report(pseudo_family.value)
+            self.report(f'{pseudo_family.value}')
 
             try:
                 pseudo_family = load_group(pseudo_family.value)
