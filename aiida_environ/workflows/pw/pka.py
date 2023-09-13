@@ -11,7 +11,7 @@ from aiida.plugins import CalculationFactory, WorkflowFactory
 from aiida_quantumespresso.common.types import RelaxType
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 from aiida_quantumespresso.workflows.protocols.utils import ProtocolMixin
-from aiida.orm import load_group
+from aiida.orm import load_group, StructureData
 from aiida.orm.nodes.data.upf import get_pseudos_from_structure
 
 PwRelaxWorkChain = WorkflowFactory("environ.pw.relax")
@@ -54,10 +54,10 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                          'relax loop.')
             }
         )
-        spec.input(
+        spec.input_namespace(
             'structures', 
-            valid_type = orm.List, 
-            help = 'List of structures for pKa calculations.'
+            valid_type = StructureData, 
+            help = 'Dictionary of structures for pKa calculations.'
         )
         spec.input(
             'clean_workdir', 
@@ -111,7 +111,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
     def get_builder_from_protocol(
         cls,
         code: orm.Code,
-        structures: orm.List,
+        structures: dict,
         protocol: orm.Dict = None,
         overrides: orm.Dict = None,
         relax_type = RelaxType.POSITIONS,
