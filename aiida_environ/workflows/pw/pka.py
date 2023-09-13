@@ -264,7 +264,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                     namespace='solution'
                 )
             )
-            inputs.pw.structure = structure
+            inputs.base.pw.structure = structure
             pseudo_family = load_group(self.inputs.pseudo_family.value)
             inputs.base.pw.pseudos = pseudo_family.get_pseudos(
                 structure=structure
