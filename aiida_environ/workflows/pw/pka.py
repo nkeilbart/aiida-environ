@@ -99,6 +99,13 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             message = 'pseudo family does not exist'
         )
         spec.output_namespace(
+            'output_structures',
+            valid_type = StructureData,
+            required = False,
+            help = ('Optimized structures for vacuum and solution '
+                    'calculations')
+        )
+        spec.output_namespace(
             'pKa',
             valid_type = orm.Dict,
             required = False,
@@ -211,7 +218,12 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             'vacuum': {},
             'solution': {}
         }
+        output_structures = {
+            'vacuum': {},
+            'solution': {}
+        }
         self.ctx.results = results
+        self.ctx.output_structures = output_structures
 
         return
 
@@ -237,7 +249,8 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             )
             inputs.base.pw.pseudo_family = self.inputs.pseudo_family
 
-            self.ctx.results['vacuum'][key]={}
+            self.ctx.results['vacuum'][key] = {}
+            self.ctx.output_structures['vacuum'][key] = {}
 
             future = self.submit(PwRelaxWorkChain, **inputs)
             self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
@@ -257,7 +270,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             
             # Add final structure to results
             structure = workchain.outputs.output_structure
-            self.ctx.results['vacuum'][key]['structure'] = structure
+            self.ctx.output_structures['vacuum'][key]['structure'] = structure
             
         self.ctx.vacuum_failed = False
 
@@ -284,7 +297,8 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             )
             inputs.base.pw.pseudo_family = self.inputs.pseudo_family
 
-            self.ctx.results['solution'][key]={}
+            self.ctx.results['solution'][key] = {}
+            self.ctx.output_structures['solution'][key] = {}
 
             future = self.submit(PwRelaxWorkChain, **inputs)
             self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
@@ -304,7 +318,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             
             # Add final structure to results
             structure = workchain.outputs.output_structure
-            self.ctx.results['solution'][key]['structure'] = structure
+            self.ctx.output_structures['solution'][key]['structure'] = structure
             
         self.ctx.solution_failed = False
 
@@ -316,6 +330,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             self.report(f"pka workchain completed")
 
         results = self.ctx.results
+        output_structures = self.ctx.output_structures
 
         for e, v in self.ctx.vacuum.items():
             output = v.outputs.output_parameters.get_dict()
@@ -327,7 +342,11 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         results = orm.Dict(dict=results)
         results.store()
 
+        output_structures = orm.Dict(dict=output_structures)
+        output_structures.store()
+
         self.out("pKa", results)
+        self.out("output_structures", output_structures)
 
     def on_terminated(self):
         """Clean the working directories of all child calculations if `clean_workdir=True` in the inputs."""
