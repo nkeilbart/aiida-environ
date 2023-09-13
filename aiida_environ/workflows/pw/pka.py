@@ -133,7 +133,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         """
         type_check(relax_type, RelaxType)
 
-        args = (code, structures.values()[0], protocol)
+        args = (code, list(structures.values())[0], protocol)
         builder = cls.get_builder()
 
         vacuum = PwRelaxWorkChain.get_builder_from_protocol(
