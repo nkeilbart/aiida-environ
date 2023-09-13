@@ -168,11 +168,6 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 'alpha': 1.12,
                 'radius_mode': 'muff',
                 'solvent_mode': 'ionic',
-                'field_aware': True,
-                'field_factor': 0.24,
-                'field_asymmetry': 0.32,
-                'field_max': 6,
-                'field_min': 2,
                 'deriv_method': 'lowmem'
             },
             'ELECTROSTATIC': {
@@ -187,6 +182,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         environ_input['ENVIRON']['env_static_permittivity'] = 1.0
         environ_input['ENVIRON']['env_pressure'] = 0.0
         environ_input['ENVIRON']['env_surface_tension'] = 0.0
+        environ_input['ELECTROSTATIC']['solver'] = 'direct'
         vacuum['base']['pw']['environ_parameters'] = orm.Dict(dict=environ_input)  
 
         builder.vacuum = vacuum
