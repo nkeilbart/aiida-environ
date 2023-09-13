@@ -205,7 +205,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         # Check if pseudo family exists
         family_name = self.inputs.pseudo_family.value
         try:
-            pseudo_family = load_group(family_name)
+            self.ctx.pseudo_family = load_group(family_name)
         except:
             self.report(f'failed to load pseudo family {family_name}')
             return self.exit_codes.PSEUDO_FAMILY_DOES_NOT_EXIST
@@ -219,7 +219,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
 
         self.ctx.vacuum = AttributeDict()
         # Iterate over the list of structures and attach to the inputs.
-        for e, structure in enumerate(self.inputs.structures):
+        for key, structure in self.inputs.structures.items():
             inputs = AttributeDict(
                 self.exposed_inputs(
                     PwRelaxWorkChain,
@@ -228,13 +228,12 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             )
 
             inputs.base.pw.structure = structure
-            inputs.base.pw.pseudos = get_pseudos_from_structure(
-                structure,
-                self.inputs.pseudo_family.value
+            inputs.base.pw.pseudos = self.ctx.pseudo_family.get_pseudos(
+                structure=structure
             )
             future = self.submit(PwRelaxWorkChain, **inputs)
             self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
-            self.to_context(**{f'vacuum.{e}': future})
+            self.to_context(**{f'vacuum.{key}': future})
 
         return
     
@@ -260,7 +259,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
 
         self.ctx.solution = AttributeDict()
         # Iterate over the list of structures and attach to the inputs.
-        for e, structure in enumerate(self.inputs.structures):
+        for key, structure in self.inputs.structures.items():
             inputs = AttributeDict(
                 self.exposed_inputs(
                     PwRelaxWorkChain,
@@ -268,13 +267,12 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 )
             )
             inputs.pw.structure = structure
-            inputs.base.pw.pseudos = get_pseudos_from_structure(
-                structure,
-                self.inputs.pseudo_family.value
+            inputs.base.pw.pseudos = self.ctx.pseudo_family.get_pseudos(
+                structure=structure
             )
             future = self.submit(PwRelaxWorkChain, **inputs)
             self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
-            self.to_context(**{f'solution.{e}': future})
+            self.to_context(**{f'solution.{key}': future})
 
         return
     
