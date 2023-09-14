@@ -354,7 +354,10 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         for label, workchain in self.ctx.vacuum.items():
             self.ctx.phonopy.vacuum[label] = {}
             structure = workchain.outputs.output_structure
-            preprocess_data = PreProcessData(structure, supercell_matrix)
+            preprocess_data = PreProcessData(
+                structure = structure, 
+                supercell_matrix = supercell_matrix
+            )
             supercells = preprocess_data.get_supercells_with_displacements()
             self.ctx.preprocess_data['vacuum'][label] = preprocess_data
             pseudo_family = load_group(self.inputs.pseudo_family.value)
@@ -380,7 +383,10 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         for label, workchain in self.ctx.solution.items():
             self.ctx.phonopy.solution[label] = {}
             structure = workchain.outputs.output_structure
-            preprocess_data = PreProcessData(structure, supercell_matrix)
+            preprocess_data = PreProcessData(
+                structure = structure, 
+                supercell_matrix = supercell_matrix
+            )
             supercells = preprocess_data.get_supercells_with_displacements()
             self.ctx.preprocess_data['solution'][label] = preprocess_data
             pseudo_family = load_group(self.inputs.pseudo_family.value)
