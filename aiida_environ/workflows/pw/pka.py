@@ -351,8 +351,9 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         self.ctx.preprocess_data.vacuum = {}
         self.ctx.preprocess_data.solution = {}
 
-        for label, structure in self.ctx.vacuum.items():
+        for label, workchain in self.ctx.vacuum.items():
             self.ctx.phonopy.vacuum[label] = {}
+            structure = workchain.outputs.output_structure
             preprocess_data = PreProcessData(structure, supercell_matrix)
             supercells = preprocess_data.get_supercells_with_displacements()
             self.ctx.preprocess_data['vacuum'][label] = preprocess_data
@@ -376,8 +377,9 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
                 self.to_context(**{f'phonopy.vacuum.{label}.{key}': future})
 
-        for label, structure in self.ctx.solution.items():
+        for label, workchain in self.ctx.solution.items():
             self.ctx.phonopy.solution[label] = {}
+            structure = workchain.outputs.output_structure
             preprocess_data = PreProcessData(structure, supercell_matrix)
             supercells = preprocess_data.get_supercells_with_displacements()
             self.ctx.preprocess_data['solution'][label] = preprocess_data
