@@ -343,17 +343,16 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
 
         PreProcessData = DataFactory("phonopy.preprocess")
         supercell_matrix = [1,1,1]
-        self.ctx.phonopy = AttributeDict(dict={
-            'vacuum': {},
-            'solution': {}
-        })
-        self.ctx.preprocess_data = AttributeDict(dict={
-            'vacuum': {},
-            'solution': {}
-        })
+        self.ctx.phonopy = AttributeDict()
+        self.ctx.phonopy.vacuum = {}
+        self.ctx.phonopy.solution = {}
+
+        self.ctx.preprocess_data = AttributeDict()
+        self.ctx.preprocess_data.vacuum = {}
+        self.ctx.preprocess_data.solution = {}
 
         for label, structure in self.ctx.vacuum.items():
-            self.ctx.phonopy['vacuum'][label] = {}
+            self.ctx.phonopy.vacuum[label] = {}
             preprocess_data = PreProcessData(structure, supercell_matrix)
             supercells = preprocess_data.get_supercells_with_displacements()
             self.ctx.preprocess_data['vacuum'][label] = preprocess_data
@@ -378,7 +377,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 self.to_context(**{f'phonopy.vacuum.{label}.{key}': future})
 
         for label, structure in self.ctx.solution.items():
-            self.ctx.phonopy['solution'][label] = {}
+            self.ctx.phonopy.solution[label] = {}
             preprocess_data = PreProcessData(structure, supercell_matrix)
             supercells = preprocess_data.get_supercells_with_displacements()
             self.ctx.preprocess_data['solution'][label] = preprocess_data
@@ -409,10 +408,10 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         Check the results of all phonopy calculations. Gather the information
         as needed to do the postprocess step.
         """
-        dict_of_forces = AttributeDict(dict={
-            'vacuum': {},
-            'solution': {}
-        })
+        dict_of_forces = AttributeDict()
+        dict_of_forces.vacuum = {}
+        dict_of_forces.solution = {}
+
         phonopy_pk = []
         for label, supercells in self.ctx.phonopy.vacuum.items():
             dict_of_forces['vacuum'][label] = {}
@@ -448,7 +447,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         PhonopyData = DataFactory("phonopy.phonopy")
         PhonopyCalculation = CalculationFactory("phonopy.phonopy")
         phonopy_code = self.inputs.phonopy_code
-        phonopy_parameters = AttributeDict(dict={
+        phonopy_parameters = AttributeDict(dictionary={
             'EIGENVECTORS': True,
             'DIM': [1, 1, 1],
             'MESH': [1, 1, 1],
@@ -460,7 +459,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             'FC_SYMMETRY': True
         })
 
-        phonopy_calcs = AttributeDict(dict={
+        phonopy_calcs = AttributeDict(dictionary={
             'vacuum': {},
             'solution': {}
         })
