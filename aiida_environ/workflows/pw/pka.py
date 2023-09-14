@@ -105,7 +105,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             help = ('Optimized structures for vacuum and solution '
                     'calculations')
         )
-        spec.output_namespace(
+        spec.output(
             'pKa',
             valid_type = orm.Dict,
             required = False,
@@ -342,7 +342,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         results = orm.Dict(dict=results)
         results.store()
 
-        output_structures = orm.Dict(dict=output_structures)
+        output_structures = output_structures
         output_structures.store()
 
         self.out("pKa", results)
