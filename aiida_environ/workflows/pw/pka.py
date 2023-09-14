@@ -7,12 +7,11 @@ from aiida import orm
 from aiida.common import AttributeDict, exceptions
 from aiida.common.lang import type_check
 from aiida.engine import ToContext, WorkChain, append_, if_, while_
-from aiida.plugins import CalculationFactory, WorkflowFactory
+from aiida.plugins import WorkflowFactory, DataFactory, CalculationFactory
 from aiida_quantumespresso.common.types import RelaxType
-from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 from aiida_quantumespresso.workflows.protocols.utils import ProtocolMixin
-from aiida.orm import load_group, StructureData
-from aiida.orm.nodes.data.upf import get_pseudos_from_structure
+from aiida.orm import load_group, load_code, StructureData
+import numpy as np
 
 PwRelaxWorkChain = WorkflowFactory("environ.pw.relax")
 
@@ -54,6 +53,11 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                          'relax loop.')
             }
         )
+        spec.input(
+            'phonopy_code',
+            valid_type = orm.Code,
+            help = 'Phonopy code for performing vibration calculations.'
+        )
         spec.input_namespace(
             'structures', 
             valid_type = StructureData, 
@@ -77,10 +81,15 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         spec.inputs.validator = validate_inputs
         spec.outline(
             cls.setup,
+            # Optimize structures in both vacuum and solution
             cls.run_vacuum,
             cls.check_vacuum,
             cls.run_solution,
             cls.check_solution,
+            # Take optimized structures and run through phonopy
+            cls.run_phonopy,
+            cls.check_phonopy,
+            cls.postprocess_phonopy,
             cls.results,
         )
         spec.exit_code(
@@ -118,6 +127,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
     def get_builder_from_protocol(
         cls,
         code: orm.Code,
+        phonopy_code: orm.Code,
         structures: dict,
         protocol: orm.Dict = None,
         overrides: orm.Dict = None,
@@ -192,6 +202,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         environ_input['ELECTROSTATIC']['solver'] = 'direct'
         vacuum['base']['pw']['environ_parameters'] = orm.Dict(dict=environ_input)  
 
+        builder.phonopy_code = phonopy_code
         builder.vacuum = vacuum
         builder.solution = solution
         builder.structures = structures
@@ -321,6 +332,172 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             self.ctx.output_structures['solution'][key]['structure'] = structure
             
         self.ctx.solution_failed = False
+
+        return
+    
+    def run_phonopy(self):
+        """
+        Take the final structures from the vacuum and solution calculations
+        and run phonopy on all structures to generate displacements.
+        """
+
+        PreProcessData = DataFactory("phonopy.preprocess")
+        supercell_matrix = [1,1,1]
+        self.ctx.phonopy = AttributeDict(dict={
+            'vacuum': {},
+            'solution': {}
+        })
+        self.ctx.preprocess_data = AttributeDict(dict={
+            'vacuum': {},
+            'solution': {}
+        })
+
+        for label, structure in self.ctx.vacuum.items():
+            self.ctx.phonopy['vacuum'][label] = {}
+            preprocess_data = PreProcessData(structure, supercell_matrix)
+            supercells = preprocess_data.get_supercells_with_displacements()
+            self.ctx.preprocess_data['vacuum'][label] = preprocess_data
+            pseudo_family = load_group(self.inputs.pseudo_family.value)
+            # Initialize inputs for each supercell and submit
+            for key, supercell in supercells.items():
+                inputs = AttributeDict(
+                self.exposed_inputs(
+                    PwRelaxWorkChain,
+                    namespace='vacuum'
+                    )
+                )
+                inputs.base.pw.parameters["CONTROL"]["calculation"] = 'scf'
+                inputs.base.pw.structure = supercell
+                inputs.base.pw.pseudos = pseudo_family.get_pseudos(
+                    structure=supercell
+                )
+                inputs.base.pw.pseudo_family = self.inputs.pseudo_family
+
+                future = self.submit(PwRelaxWorkChain, **inputs)
+                self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
+                self.to_context(**{f'phonopy.vacuum.{label}.{key}': future})
+
+        for label, structure in self.ctx.solution.items():
+            self.ctx.phonopy['solution'][label] = {}
+            preprocess_data = PreProcessData(structure, supercell_matrix)
+            supercells = preprocess_data.get_supercells_with_displacements()
+            self.ctx.preprocess_data['solution'][label] = preprocess_data
+            pseudo_family = load_group(self.inputs.pseudo_family.value)
+            # Initialize inputs for each supercell and submit
+            for key, supercell in supercells.items():
+                inputs = AttributeDict(
+                self.exposed_inputs(
+                    PwRelaxWorkChain,
+                    namespace='solution'
+                    )
+                )
+                inputs.base.pw.parameters["CONTROL"]["calculation"] = 'scf'
+                inputs.base.pw.structure = supercell
+                inputs.base.pw.pseudos = pseudo_family.get_pseudos(
+                    structure=supercell
+                )
+                inputs.base.pw.pseudo_family = self.inputs.pseudo_family
+
+                future = self.submit(PwRelaxWorkChain, **inputs)
+                self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
+                self.to_context(**{f'phonopy.solution.{label}.{key}': future})      
+
+        return
+    
+    def check_phonopy(self):
+        """
+        Check the results of all phonopy calculations. Gather the information
+        as needed to do the postprocess step.
+        """
+        dict_of_forces = AttributeDict(dict={
+            'vacuum': {},
+            'solution': {}
+        })
+        phonopy_pk = []
+        for label, supercells in self.ctx.phonopy.vacuum.items():
+            dict_of_forces['vacuum'][label] = {}
+            for key, supercell in supercells.items():
+                if supercell.is_failed:
+                    phonopy_pk.append(supercell.pk)
+                else:
+                    force_name = f'forces_{key.split("_")[-1]}'
+                    forces = supercell.outputs.output_trajectory.get_array('forces')
+                    dict_of_forces['vacuum'][label][force_name] = forces
+
+        for label, supercells in self.ctx.phonopy.solution.items():
+            dict_of_forces['solution'][label] = {}
+            for key, supercell in supercells.items():
+                if supercell.is_failed:
+                    phonopy_pk.append(supercell.pk)
+                else:
+                    force_name = f'forces_{key.split("_")[-1]}'
+                    forces = supercell.outputs.output_trajectory.get_array('forces')
+                    dict_of_forces['solution'][label][force_name] = forces
+
+        if phonopy_pk:
+            self.report(f'`pKaWorkChain failed at phonopy calculations {" ".join(phonopy_pk)}')
+        else:
+            self.report('phonopy calculations finished')
+
+        self.ctx.forces = dict_of_forces
+
+        return
+    
+    def postprocess_phonopy(self):
+
+        PhonopyData = DataFactory("phonopy.phonopy")
+        PhonopyCalculation = CalculationFactory("phonopy.phonopy")
+        phonopy_code = self.inputs.phonopy_code
+        phonopy_parameters = AttributeDict(dict={
+            'EIGENVECTORS': True,
+            'DIM': [1, 1, 1],
+            'MESH': [1, 1, 1],
+            'GAMMA_CENTER': True,
+            'TPROP': True,
+            'TMAX': 298.15,
+            'TMIN': 298.15,
+            'CUTOFF_FREQUENCY': 10,
+            'FC_SYMMETRY': True
+        })
+
+        phonopy_calcs = AttributeDict(dict={
+            'vacuum': {},
+            'solution': {}
+        })
+
+        for label, preprocess_data in self.ctx.preprocess_data.vacuum.items():
+
+            preprocess_data = self.ctx.preprocess_data['vacuum'][label]
+            phonopy_data =  PhonopyData(preprocess_data=preprocess_data)
+
+            dict_of_forces = self.ctx.forces.vacuum[label]
+            phonopy_data.set_forces(dict_of_forces=dict_of_forces)
+
+            builder = PhonopyCalculation.get_builder()
+            builder.code = phonopy_code
+            builder.phonopy_data = phonopy_data
+            builder.parameters = phonopy_parameters
+
+            future = self.submit(builder)
+            self.report(f'submitting `PhonopyCalculation` <PK={future.pk}>.')
+            self.to_context(**{f'phonopy_calcs.vacuum.{label}': future})  
+
+        for label, preprocess_data in self.ctx.preprocess_data.solution.items():
+
+            preprocess_data = self.ctx.preprocess_data['solution'][label]
+            phonopy_data =  PhonopyData(preprocess_data=preprocess_data)
+
+            dict_of_forces = self.ctx.forces.solution[label]
+            phonopy_data.set_forces(dict_of_forces=dict_of_forces)
+
+            builder = PhonopyCalculation.get_builder()
+            builder.code = phonopy_code
+            builder.phonopy_data = phonopy_data
+            builder.parameters = phonopy_parameters
+
+            future = self.submit(builder)
+            self.report(f'submitting `PhonopyCalculation` <PK={future.pk}>.')
+            self.to_context(**{f'phonopy_calcs.solution.{label}': future}) 
 
         return
 
