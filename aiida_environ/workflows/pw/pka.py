@@ -342,9 +342,6 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         results = orm.Dict(dict=results)
         results.store()
 
-        output_structures = output_structures
-        output_structures.store()
-
         self.out("pKa", results)
         self.out("output_structures", output_structures)
 
