@@ -343,13 +343,15 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
 
         PreProcessData = DataFactory("phonopy.preprocess")
         supercell_matrix = [1,1,1]
-        self.ctx.phonopy = AttributeDict()
-        self.ctx.phonopy.vacuum = {}
-        self.ctx.phonopy.solution = {}
+        self.ctx.phonopy = AttributeDict(dictionary={
+            'vacuum' : {},
+            'solution' : {}
+        })
 
-        self.ctx.preprocess_data = AttributeDict()
-        self.ctx.preprocess_data.vacuum = {}
-        self.ctx.preprocess_data.solution = {}
+        self.ctx.preprocess_data = AttributeDict(dictionary={
+            'vacuum': {},
+            'solution': {}
+        })
 
         for label, workchain in self.ctx.vacuum.items():
             self.ctx.phonopy.vacuum[label] = {}
