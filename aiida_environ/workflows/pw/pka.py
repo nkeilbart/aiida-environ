@@ -360,7 +360,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 structure = structure, 
                 supercell_matrix = supercell_matrix
             )
-            supercells = preprocess_data.get_supercells_with_displacements()
+            supercells = preprocess_data.calcfuntions.get_supercells_with_displacements()
             self.ctx.preprocess_data['vacuum'][label] = preprocess_data
             pseudo_family = load_group(self.inputs.pseudo_family.value)
             # Initialize inputs for each supercell and submit
@@ -389,7 +389,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 structure = structure, 
                 supercell_matrix = supercell_matrix
             )
-            supercells = preprocess_data.get_supercells_with_displacements()
+            supercells = preprocess_data.calcfuntions.get_supercells_with_displacements()
             self.ctx.preprocess_data['solution'][label] = preprocess_data
             pseudo_family = load_group(self.inputs.pseudo_family.value)
             # Initialize inputs for each supercell and submit
@@ -477,10 +477,8 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         for label, preprocess_data in self.ctx.preprocess_data.vacuum.items():
 
             preprocess_data = self.ctx.preprocess_data['vacuum'][label]
-            phonopy_data =  PhonopyData(preprocess_data=preprocess_data)
-
             dict_of_forces = self.ctx.forces.vacuum[label]
-            phonopy_data.set_forces(dict_of_forces=dict_of_forces)
+            phonopy_data = preprocess_data.calcfuntions.generate_phonopy_data(**dict_of_forces)
 
             builder = PhonopyCalculation.get_builder()
             builder.code = phonopy_code
@@ -494,10 +492,8 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         for label, preprocess_data in self.ctx.preprocess_data.solution.items():
 
             preprocess_data = self.ctx.preprocess_data['solution'][label]
-            phonopy_data =  PhonopyData(preprocess_data=preprocess_data)
-
             dict_of_forces = self.ctx.forces.solution[label]
-            phonopy_data.set_forces(dict_of_forces=dict_of_forces)
+            phonopy_data = preprocess_data.calcfuntions.generate_phonopy_data(**dict_of_forces)
 
             builder = PhonopyCalculation.get_builder()
             builder.code = phonopy_code
