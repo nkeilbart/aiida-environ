@@ -448,6 +448,8 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         else:
             self.report('phonopy calculations finished')
 
+        self.report(f'Dict of forces: {dict_of_forces}')
+
         self.ctx.forces = dict_of_forces
 
         return
@@ -477,8 +479,8 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
 
         for label, preprocess_data in self.ctx.preprocess_data.vacuum.items():
 
-            preprocess_data = self.ctx.preprocess_data['vacuum'][label]
-            dict_of_forces = self.ctx.forces.vacuum[label]
+            preprocess_data = self.ctx.preprocess_data['vacuum'].get(label)
+            dict_of_forces = self.ctx.forces.vacuum.get(label, {})
             self.report(f'Number of forces in dict: {len(dict_of_forces.keys())}')
             phonopy_data = preprocess_data.calcfunctions.generate_phonopy_data(**dict_of_forces)
 
@@ -494,8 +496,8 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
 
         for label, preprocess_data in self.ctx.preprocess_data.solution.items():
 
-            preprocess_data = self.ctx.preprocess_data['solution'][label]
-            dict_of_forces = self.ctx.forces.solution[label]
+            preprocess_data = self.ctx.preprocess_data['solution'].get(label)
+            dict_of_forces = self.ctx.forces.solution.get(label, {})
             phonopy_data = preprocess_data.calcfuntions.generate_phonopy_data(**dict_of_forces)
 
             builder = PhonopyCalculation.get_builder()
