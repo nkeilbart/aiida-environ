@@ -383,8 +383,8 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 inputs.base.pw.pseudo_family = self.inputs.pseudo_family
 
                 future = self.submit(PwRelaxWorkChain, **inputs)
+                self.ctx.phonopy.solution[label][key] = future
                 self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
-                self.to_context(**{f'phonopy.vacuum["{label}"]["{key}"]': future})
 
         for label, workchain in self.ctx.solution.items():
             self.ctx.phonopy.solution[label] = {}
@@ -412,8 +412,8 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 inputs.base.pw.pseudo_family = self.inputs.pseudo_family
 
                 future = self.submit(PwRelaxWorkChain, **inputs)
+                self.ctx.phonopy.solution[label][key] = future
                 self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
-                self.to_context(**{f'phonopy.solution["{label}"]["{key}"]': future})      
 
         return
     
@@ -480,7 +480,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             'FC_SYMMETRY': True
         })
 
-        phonopy_calcs = AttributeDict(dictionary={
+        self.phonopy_calcs = AttributeDict(dictionary={
             'vacuum': {},
             'solution': {}
         })
