@@ -473,6 +473,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             'vacuum': {},
             'solution': {}
         })
+        metadata = self.inputs.vacuum.base.pw.metadata
 
         for label, preprocess_data in self.ctx.preprocess_data.vacuum.items():
 
@@ -484,6 +485,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             builder.code = phonopy_code
             builder.phonopy_data = phonopy_data
             builder.parameters = phonopy_parameters
+            builder.metadata = metadata
 
             future = self.submit(builder)
             self.report(f'submitting `PhonopyCalculation` <PK={future.pk}>.')
@@ -499,6 +501,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             builder.code = phonopy_code
             builder.phonopy_data = phonopy_data
             builder.parameters = phonopy_parameters
+            builder.metadata = metadata
 
             future = self.submit(builder)
             self.report(f'submitting `PhonopyCalculation` <PK={future.pk}>.')
