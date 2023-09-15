@@ -284,6 +284,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             self.ctx.output_structures['vacuum'][key]['structure'] = structure
             
         self.ctx.vacuum_failed = False
+        self.report('Vacuum optimization finished')
 
         return
 
@@ -332,6 +333,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             self.ctx.output_structures['solution'][key]['structure'] = structure
             
         self.ctx.solution_failed = False
+        self.report(f'Solution optimization finished')
 
         return
     
@@ -340,6 +342,8 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         Take the final structures from the vacuum and solution calculations
         and run phonopy on all structures to generate displacements.
         """
+
+        self.report(f'Commencing phonopy calculations')
 
         PreProcessData = DataFactory("phonopy.preprocess")
         supercell_matrix = [1,1,1]
