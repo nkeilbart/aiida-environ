@@ -383,7 +383,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 inputs.base.pw.pseudo_family = self.inputs.pseudo_family
 
                 future = self.submit(PwRelaxWorkChain, **inputs)
-                self.ctx.phonopy.solution[label][key] = future
+                self.ctx.phonopy.vacuum[label][key] = future
                 self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
 
         for label, workchain in self.ctx.solution.items():
