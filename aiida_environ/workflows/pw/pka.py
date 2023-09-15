@@ -360,7 +360,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 structure = structure, 
                 supercell_matrix = supercell_matrix
             )
-            supercells = preprocess_data.calcfuntions.get_supercells_with_displacements()
+            supercells = preprocess_data.calcfunctions.get_supercells_with_displacements()
             self.ctx.preprocess_data['vacuum'][label] = preprocess_data
             pseudo_family = load_group(self.inputs.pseudo_family.value)
             # Initialize inputs for each supercell and submit
@@ -389,7 +389,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 structure = structure, 
                 supercell_matrix = supercell_matrix
             )
-            supercells = preprocess_data.calcfuntions.get_supercells_with_displacements()
+            supercells = preprocess_data.calcfunctions.get_supercells_with_displacements()
             self.ctx.preprocess_data['solution'][label] = preprocess_data
             pseudo_family = load_group(self.inputs.pseudo_family.value)
             # Initialize inputs for each supercell and submit
