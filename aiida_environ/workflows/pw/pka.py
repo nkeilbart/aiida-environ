@@ -479,6 +479,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
 
             preprocess_data = self.ctx.preprocess_data['vacuum'][label]
             dict_of_forces = self.ctx.forces.vacuum[label]
+            self.report(f'Number of forces in dict: {len(dict_of_forces.keys())}')
             phonopy_data = preprocess_data.calcfunctions.generate_phonopy_data(**dict_of_forces)
 
             builder = PhonopyCalculation.get_builder()
