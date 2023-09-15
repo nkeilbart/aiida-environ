@@ -426,6 +426,9 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         dict_of_forces.vacuum = {}
         dict_of_forces.solution = {}
 
+        self.report(f'Checking phonopy simulations')
+        self.report(f'{self.ctx.phonopy.vacuum.items()}')
+
         phonopy_pk = []
         for label, supercells in self.ctx.phonopy.vacuum.items():
             dict_of_forces['vacuum'][label] = {}
