@@ -426,11 +426,13 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         for label, supercells in self.ctx.phonopy.vacuum.items():
             dict_of_forces['vacuum'][label] = {}
             for key, supercell in supercells.items():
+                self.report(f'Supercell: {key}')
                 if supercell.is_failed:
                     phonopy_pk.append(supercell.pk)
                 else:
                     force_name = f'forces_{key.split("_")[-1]}'
                     forces = supercell.outputs.output_trajectory.get_array('forces')
+                    self.report(f'Adding {force_name} to dict: {forces}')
                     dict_of_forces['vacuum'][label][force_name] = forces
 
         for label, supercells in self.ctx.phonopy.solution.items():
