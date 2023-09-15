@@ -259,6 +259,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 structure=structure
             )
             inputs.base.pw.pseudo_family = self.inputs.pseudo_family
+            inputs.metadata.call_link_label = f'vacuum_{key}'
 
             self.ctx.results['vacuum'][key] = {}
             self.ctx.output_structures['vacuum'][key] = {}
@@ -308,6 +309,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 structure=structure
             )
             inputs.base.pw.pseudo_family = self.inputs.pseudo_family
+            inputs.metadata.call_link_label = f'solution_{key}'
 
             self.ctx.results['solution'][key] = {}
             self.ctx.output_structures['solution'][key] = {}
@@ -381,6 +383,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                     structure=supercell
                 )
                 inputs.base.pw.pseudo_family = self.inputs.pseudo_family
+                inputs.metadata.call_link_label = f'vacuum_{label}_{key}'
 
                 future = self.submit(PwRelaxWorkChain, **inputs)
                 self.ctx.phonopy.vacuum[label][key] = future
@@ -410,6 +413,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                     structure=supercell
                 )
                 inputs.base.pw.pseudo_family = self.inputs.pseudo_family
+                inputs.metadata.call_link_label = f'solution_{label}_{key}'
 
                 future = self.submit(PwRelaxWorkChain, **inputs)
                 self.ctx.phonopy.solution[label][key] = future
@@ -465,7 +469,6 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
     
     def postprocess_phonopy(self):
 
-        PhonopyData = DataFactory("phonopy.phonopy")
         PhonopyCalculation = CalculationFactory("phonopy.phonopy")
         phonopy_code = self.inputs.phonopy_code
         phonopy_parameters = AttributeDict(dictionary={
@@ -498,6 +501,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             builder.phonopy_data = phonopy_data
             builder.parameters = phonopy_parameters
             builder.metadata = metadata
+            builder.metadata.call_link_label = f'phonopy_vacuum_{label}'
 
             future = self.submit(builder)
             self.report(f'submitting `PhonopyCalculation` <PK={future.pk}>.')
@@ -514,6 +518,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             builder.phonopy_data = phonopy_data
             builder.parameters = phonopy_parameters
             builder.metadata = metadata
+            builder.metadata.call_link_label = f'phonopy_solution_{label}'
 
             future = self.submit(builder)
             self.report(f'submitting `PhonopyCalculation` <PK={future.pk}>.')
