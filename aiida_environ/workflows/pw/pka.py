@@ -346,6 +346,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         """
 
         self.report(f'Commencing phonopy calculations')
+        self.running = {}
 
         PreProcessData = DataFactory("phonopy.preprocess")
         supercell_matrix = [1,1,1]
@@ -388,7 +389,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 future = self.submit(PwRelaxWorkChain, **inputs)
                 self.ctx.phonopy.vacuum[label][key] = future
                 self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
-                ToContext(workchains=append_(future))
+                self.to_context(**{f'running.{"vacuum"+label+key}': future})
 
         for label, workchain in self.ctx.solution.items():
             self.ctx.phonopy.solution[label] = {}
@@ -400,6 +401,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             supercells = preprocess_data.calcfunctions.get_supercells_with_displacements()
             self.ctx.preprocess_data['solution'][label] = preprocess_data
             pseudo_family = load_group(self.inputs.pseudo_family.value)
+
             # Initialize inputs for each supercell and submit
             for key, supercell in supercells.items():
                 inputs = AttributeDict(
@@ -419,7 +421,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
                 future = self.submit(PwRelaxWorkChain, **inputs)
                 self.ctx.phonopy.solution[label][key] = future
                 self.report(f'submitting `PwRelaxWorkChain` <PK={future.pk}>.')
-                ToContext(workchains=append_(future))
+                self.to_context(**{f'running.{"solution"+label+key}': future})
 
         return
     
