@@ -10,7 +10,7 @@ from aiida.engine import ToContext, WorkChain, append_, if_, while_
 from aiida.plugins import WorkflowFactory, DataFactory, CalculationFactory
 from aiida_quantumespresso.common.types import RelaxType
 from aiida_quantumespresso.workflows.protocols.utils import ProtocolMixin
-from aiida.orm import load_group, load_code, StructureData
+from aiida.orm import load_group, load_code, StructureData, ArrayData
 import numpy as np
 
 PwRelaxWorkChain = WorkflowFactory("environ.pw.relax")
@@ -496,8 +496,13 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         for label, preprocess_data in self.ctx.preprocess_data.vacuum.items():
 
             preprocess_data = self.ctx.preprocess_data['vacuum'].get(label)
+
+            # Need to pass all the force information into an ArrayData object
+            forces = ArrayData()
             dict_of_forces = self.ctx.forces.vacuum.get(label, {})
-            self.report(f'Number of forces in dict: {len(dict_of_forces.keys())}')
+            for force in dict_of_forces.keys():
+                forces.set_array("forces", np.array(dict_of_forces[force]) )
+                dict_of_forces[force] = forces
             phonopy_data = preprocess_data.calcfunctions.generate_phonopy_data(**dict_of_forces)
 
             builder = PhonopyCalculation.get_builder()
