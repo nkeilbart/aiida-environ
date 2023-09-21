@@ -475,7 +475,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
 
         PhonopyCalculation = CalculationFactory("phonopy.phonopy")
         phonopy_code = self.inputs.phonopy_code
-        phonopy_parameters = AttributeDict(dictionary={
+        phonopy_parameters = orm.Dict(dict={
             'EIGENVECTORS': True,
             'DIM': [1, 1, 1],
             'MESH': [1, 1, 1],
