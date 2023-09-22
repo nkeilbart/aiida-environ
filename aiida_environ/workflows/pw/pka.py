@@ -537,7 +537,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             builder.code = phonopy_code
             builder.phonopy_data = phonopy_data
             builder.parameters = phonopy_parameters
-            builder.metadata = metadata
+            builder.metadata.options = phonopy_options
             builder.metadata.call_link_label = f'phonopy_solution_{label}'
 
             future = self.submit(builder)
