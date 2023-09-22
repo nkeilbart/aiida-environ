@@ -491,7 +491,10 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             'vacuum': {},
             'solution': {}
         })
-        metadata = self.inputs.vacuum.base.pw.metadata
+        
+        options = self.inputs.vacuum.base.pw.metadata.options
+        metadata = AttributeDict()
+        metadata.options = options
 
         for label, preprocess_data in self.ctx.preprocess_data.vacuum.items():
 
