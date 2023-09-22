@@ -493,12 +493,10 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         })
 
         options = self.inputs.vacuum.base.pw.metadata.options
-        metadata = AttributeDict(dictionary={
-            options: {}
-        })
+        phonopy_options = AttributeDict()
         options_list = ['account', 'resources', 'queue_name', 'max_wallclock_seconds']
         for option in options_list:
-            metadata.options[option] = options.get(option, '')
+            phonopy_options[option] = options.get(option, '')
 
         for label, preprocess_data in self.ctx.preprocess_data.vacuum.items():
 
@@ -517,7 +515,7 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
             builder.code = phonopy_code
             builder.phonopy_data = phonopy_data
             builder.parameters = phonopy_parameters
-            builder.metadata = metadata
+            builder.metadata.options = phonopy_options
             builder.metadata.call_link_label = f'phonopy_vacuum_{label}'
 
             future = self.submit(builder)
