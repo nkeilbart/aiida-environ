@@ -493,7 +493,9 @@ class pKaWorkChain(ProtocolMixin, WorkChain):
         })
 
         options = self.inputs.vacuum.base.pw.metadata.options
-        metadata = AttributeDict()
+        metadata = AttributeDict(dictionary={
+            options: {}
+        })
         options_list = ['account', 'resources', 'queue_name', 'max_wallclock_seconds']
         for option in options_list:
             metadata.options[option] = options.get(option, '')
