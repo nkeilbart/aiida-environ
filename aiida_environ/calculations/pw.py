@@ -70,6 +70,7 @@ class EnvPwCalculation(PwCalculation):
         # TODO: update the parameters with the number of ext charges
         if 'external_charges' in self.inputs:
             input_filecontent += self.inputs.external_charges.environ_output()
+            self.inputs.environ_parameters['ENVIRON']['env_external_charges'] = len(self.inputs['external_charges'])
 
         # write the environ input file (name is fixed)
         with folder.open('environ.in', 'w') as handle:
