@@ -17,38 +17,40 @@ def validate_inputs(inputs, _):
     """Validate the top level namespace."""
     parameters = inputs["base"]["pw"]["parameters"].get_dict()
 
-    if "relaxation_scheme" not in inputs and "calculation" not in parameters.get(
-        "CONTROL", {}
-    ):
-        return "The parameters in `base.pw.parameters` do not specify the required key `CONTROL.calculation`."
+    # if "relaxation_scheme" not in inputs and "calculation" not in parameters.get(
+    #     "CONTROL", {}
+    # ):
+    #     return "The parameters in `base.pw.parameters` do not specify the required key `CONTROL.calculation`."
+    if 'calculation' not in parameters.get('CONTROL', {}):
+        return 'The parameters in `base.pw.parameters` do not specify the required key `CONTROL.calculation`.'
 
 
-def validate_final_scf(value, _):
-    """Validate the final scf input."""
-    if isinstance(value, orm.Bool) and value:
-        import warnings
+# def validate_final_scf(value, _):
+#     """Validate the final scf input."""
+#     if isinstance(value, orm.Bool) and value:
+#         import warnings
+#
+#         from aiida.common.warnings import AiidaDeprecationWarning
+#
+#         warnings.warn(
+#             "this input is deprecated and will be removed. If you want to run a final scf, specify the inputs that "
+#             "should be used in the `base_final_scf` namespace.",
+#             AiidaDeprecationWarning,
+#         )
 
-        from aiida.common.warnings import AiidaDeprecationWarning
 
-        warnings.warn(
-            "this input is deprecated and will be removed. If you want to run a final scf, specify the inputs that "
-            "should be used in the `base_final_scf` namespace.",
-            AiidaDeprecationWarning,
-        )
-
-
-def validate_relaxation_scheme(value, _):
-    """Validate the relaxation scheme input."""
-    if value:
-        import warnings
-
-        from aiida.common.warnings import AiidaDeprecationWarning
-
-        warnings.warn(
-            "the `relaxation_scheme` input is deprecated and will be removed. Use the `get_builder_from_protocol` "
-            "instead to obtain a prepopulated builder using the `RelaxType` enum.",
-            AiidaDeprecationWarning,
-        )
+# def validate_relaxation_scheme(value, _):
+#     """Validate the relaxation scheme input."""
+#     if value:
+#         import warnings
+#
+#         from aiida.common.warnings import AiidaDeprecationWarning
+#
+#         warnings.warn(
+#             "the `relaxation_scheme` input is deprecated and will be removed. Use the `get_builder_from_protocol` "
+#             "instead to obtain a prepopulated builder using the `RelaxType` enum.",
+#             AiidaDeprecationWarning,
+#         )
 
 
 class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
@@ -64,7 +66,7 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
             namespace = 'base',
             exclude = ('clean_workdir', 'pw.structure', 'pw.parent_folder'),
             namespace_options = {
-                'help': ('Inputs for the `PwBaseWorkChain` for the main relax '
+                'help': ('Inputs for the `EnvPwBaseWorkChain` for the main relax '
                          'loop.')
             }
         )
@@ -75,7 +77,7 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
             namespace_options = {
                 'required': False, 
                 'populate_defaults': False,
-                'help': 'Inputs for the `PwBaseWorkChain` for the final scf.'
+                'help': 'Inputs for the `EnvPwBaseWorkChain` for the final scf.'
             }
         )
         spec.input(
@@ -83,22 +85,22 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
             valid_type = orm.StructureData, 
             help = 'The inputs structure.'
         )
-        spec.input(
-            'final_scf', 
-            valid_type = orm.Bool, 
-            default = lambda: orm.Bool(False), 
-            validator = validate_final_scf,
-            help = ('If `True`, a final SCF calculation will be performed on '
-                    'the successfully relaxed structure.')
-        )
-        spec.input(
-            'relaxation_scheme', 
-            valid_type = orm.Str, 
-            required = False, 
-            validator = validate_relaxation_scheme,
-            help = ('The relaxation scheme to use: choose either `relax` '
-                    'or `vc-relax` for variable cell relax.')
-        )
+        # spec.input(
+        #     'final_scf',
+        #     valid_type = orm.Bool,
+        #     default = lambda: orm.Bool(False),
+        #     validator = validate_final_scf,
+        #     help = ('If `True`, a final SCF calculation will be performed on '
+        #             'the successfully relaxed structure.')
+        # )
+        # spec.input(
+        #     'relaxation_scheme',
+        #     valid_type = orm.Str,
+        #     required = False,
+        #     validator = validate_relaxation_scheme,
+        #     help = ('The relaxation scheme to use: choose either `relax` '
+        #             'or `vc-relax` for variable cell relax.')
+        # )
         spec.input(
             'meta_convergence', 
             valid_type = orm.Bool, 
@@ -150,10 +152,7 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
             'ERROR_SUB_PROCESS_FAILED_FINAL_SCF',
             message='the final scf PwBaseWorkChain sub process failed'
         )
-        spec.expose_outputs(
-            PwBaseWorkChain, 
-            exclude=('output_structure',)
-        )
+        spec.expose_outputs(PwBaseWorkChain,exclude=('output_structure',))
         spec.output(
             'output_structure', 
             valid_type=orm.StructureData, 
@@ -178,6 +177,7 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
         protocol=None,
         overrides=None,
         relax_type=RelaxType.POSITIONS_CELL,
+        options=None,
         **kwargs,
     ):
         """Return a builder prepopulated with inputs selected according to the chosen protocol.
@@ -187,6 +187,8 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
         :param protocol: protocol to use, if not specified, the default will be used.
         :param overrides: optional dictionary of inputs to override the defaults of the protocol.
         :param relax_type: the relax type to use: should be a value of the enum ``common.types.RelaxType``.
+        :param options: A dictionary of options that will be recursively set for the ``metadata.options`` input of all
+            the ``CalcJobs`` that are nested in this work chain.
         :param kwargs: additional keyword arguments that will be passed to the ``get_builder_from_protocol`` of all the
             sub processes that are called by this workchain.
         :return: a process builder instance with all inputs defined ready for launch.
@@ -196,7 +198,6 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
         args = (code, structure, protocol)
         inputs = cls.get_protocol_inputs(protocol, overrides)
         environ = inputs.get("environ", None)
-        builder = cls.get_builder()
 
         base = PwBaseWorkChain.get_builder_from_protocol(
             *args, overrides=inputs.get("base", None), **kwargs
@@ -227,11 +228,11 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
 
         if relax_type is RelaxType.NONE:
             base.pw.parameters["CONTROL"]["calculation"] = "scf"
-            base.pw.parameters.delete_attribute("CELL")
+            base.pw.parameters.base.attributes.delete("CELL")
 
         elif relax_type is RelaxType.POSITIONS:
             base.pw.parameters["CONTROL"]["calculation"] = "relax"
-            base.pw.parameters.delete_attribute("CELL")
+            base.pw.parameters.base.attributes.delete("CELL")
         else:
             base.pw.parameters["CONTROL"]["calculation"] = "vc-relax"
 
@@ -243,14 +244,25 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
 
         if relax_type in (RelaxType.CELL, RelaxType.POSITIONS_CELL):
             base.pw.parameters["CELL"]["cell_dofree"] = "all"
+        if relax_type in (RelaxType.CELL, RelaxType.POSITIONS_CELL):
+            pbc_cell_dofree_map = {
+                (True, True, True): 'all',
+                (True, False, False): 'x',
+                (False, True, False): 'y',
+                (False, False, True): 'z',
+                (True, True, False): '2Dxy',
+            }
+            if structure.pbc in pbc_cell_dofree_map:
+                base.pw.parameters['CELL']['cell_dofree'] = pbc_cell_dofree_map[structure.pbc]
+            else:
+                raise ValueError(f'Structures with periodic boundary conditions `{structure.pbc}` are not supported.')
 
+        builder = cls.get_builder()
         builder.base = base
         builder.base_final_scf = base_final_scf
         builder.structure = structure
         builder.clean_workdir = orm.Bool(inputs["clean_workdir"])
-        builder.max_meta_convergence_iterations = orm.Int(
-            inputs["max_meta_convergence_iterations"]
-        )
+        builder.max_meta_convergence_iterations = orm.Int(inputs["max_meta_convergence_iterations"])
         builder.meta_convergence = orm.Bool(inputs["meta_convergence"])
         builder.volume_convergence = orm.Float(inputs["volume_convergence"])
 
