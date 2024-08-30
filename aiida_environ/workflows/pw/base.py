@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Workchain to run a Quantum ESPRESSO pw.x calculation with automated error handling and restarts."""
+"""
+Workchain to run a Quantum ESPRESSO pw.x calculation with automated error 
+handling and restarts.
+"""
 from aiida import orm
-from aiida.orm import load_group
 from aiida.common import AttributeDict, exceptions
 from aiida.common.lang import type_check
 from aiida.engine import (
@@ -26,6 +28,7 @@ EnvPwCalculation = CalculationFactory("environ.pw")
 SsspFamily = GroupFactory("pseudo.family.sssp")
 PseudoDojoFamily = GroupFactory("pseudo.family.pseudo_dojo")
 CutoffsPseudoPotentialFamily = GroupFactory("pseudo.family.cutoffs")
+PwCalculation = CalculationFactory("environ.pw")
 
 
 # def validate_pseudo_family(value, _):
@@ -42,7 +45,10 @@ CutoffsPseudoPotentialFamily = GroupFactory("pseudo.family.cutoffs")
 
 
 class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
-    """Workchain to run a Quantum ESPRESSO pw.x calculation with automated error handling and restarts."""
+    """
+    Workchain to run a Quantum ESPRESSO pw.x calculation with automated 
+    error handling and restarts.
+    """
 
     # pylint: disable=too-many-public-methods, too-many-statements
 
@@ -74,15 +80,38 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         #     valid_type = dict,
         #     required = False
         # )
-        spec.input('kpoints', valid_type=orm.KpointsData, required=False,
-                   help='An explicit k-points list or mesh. Either this or `kpoints_distance` has to be provided.')
-        spec.input('kpoints_distance', valid_type=orm.Float, required=False,
-                   help='The minimum desired distance in 1/Å between k-points in reciprocal space. The explicit k-points will '
-                        'be generated automatically by a calculation function based on the input structure.')
-        spec.input('kpoints_force_parity', valid_type=orm.Bool, required=False,
-                   help='Optional input when constructing the k-points based on a desired `kpoints_distance`. Setting this to '
-                        '`True` will force the k-point mesh to have an even number of points along each lattice vector except '
-                        'for any non-periodic directions.')
+        spec.input(
+            'kpoints', 
+            valid_type=orm.KpointsData, 
+            required=False,
+            help=(
+                'An explicit k-points list or mesh. Either this or '
+                '`kpoints_distance` has to be provided.'
+            )
+        )
+        spec.input(
+            'kpoints_distance', 
+            valid_type=orm.Float, 
+            required=False,
+            help=(
+                'The minimum desired distance in 1/Å between k-points in '
+                'reciprocal space. The explicit k-points will be generated '
+                'automatically by a calculation function based on the input '
+                'structure.'
+            )
+        )
+        spec.input(
+            'kpoints_force_parity', 
+            valid_type=orm.Bool, 
+            required=False,
+            help=(
+                'Optional input when constructing the k-points based on a '
+                'desired `kpoints_distance`. Setting this to `True` will '
+                'force the k-point mesh to have an even number of points '
+                'along each lattice vector except for any non-periodic '
+                'directions.'
+            )
+        )
         # spec.input(
         #     'pseudo_family',
         #     valid_type = orm.Str,
@@ -110,39 +139,106 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
 
         spec.expose_outputs(EnvPwCalculation)
 
-        spec.exit_code(201, 'ERROR_INVALID_INPUT_PSEUDO_POTENTIALS',
-            message='The explicit `pseudos` or `pseudo_family` could not be used to get the necessary pseudos.')
-        spec.exit_code(202, 'ERROR_INVALID_INPUT_KPOINTS',
-            message='Neither the `kpoints` nor the `kpoints_distance` input was specified.')
-        spec.exit_code(203, 'ERROR_INVALID_INPUT_RESOURCES',
-            message='Neither the `options` nor `automatic_parallelization` input was specified. '
-                    'This exit status has been deprecated as the check it corresponded to was incorrect.')
-        spec.exit_code(204, 'ERROR_INVALID_INPUT_RESOURCES_UNDERSPECIFIED',
-            message='The `metadata.options` did not specify both `resources.num_machines` and `max_wallclock_seconds`. '
-                    'This exit status has been deprecated as the check it corresponded to was incorrect.')
-        spec.exit_code(210, 'ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_MISSING_KEY',
-            message='Required key for `automatic_parallelization` was not specified.'
-                    'This exit status has been deprecated as the automatic parallellization feature was removed.')
-        spec.exit_code(211, 'ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_UNRECOGNIZED_KEY',
-            message='Unrecognized keys were specified for `automatic_parallelization`.'
-                    'This exit status has been deprecated as the automatic parallellization feature was removed.')
-        spec.exit_code(300, 'ERROR_UNRECOVERABLE_FAILURE',
-            message='The calculation failed with an unidentified unrecoverable error.')
-        spec.exit_code(310, 'ERROR_KNOWN_UNRECOVERABLE_FAILURE',
-            message='The calculation failed with a known unrecoverable error.')
-        spec.exit_code(320, 'ERROR_INITIALIZATION_CALCULATION_FAILED',
-            message='The initialization calculation failed.')
-        spec.exit_code(501, 'ERROR_IONIC_CONVERGENCE_REACHED_EXCEPT_IN_FINAL_SCF',
-            message='Then ionic minimization cycle converged but the thresholds are exceeded in the final SCF.')
-        spec.exit_code(710, 'WARNING_ELECTRONIC_CONVERGENCE_NOT_REACHED',
-            message='The electronic minimization cycle did not reach self-consistency, but `scf_must_converge` '
-                    'is `False` and/or `electron_maxstep` is 0.')
+        spec.exit_code(
+            201, 
+            'ERROR_INVALID_INPUT_PSEUDO_POTENTIALS',
+            message=(
+                'The explicit `pseudos` or `pseudo_family` could not be used '
+                'to get the necessary pseudos.'
+            )
+        )
+        spec.exit_code(
+            202, 
+            'ERROR_INVALID_INPUT_KPOINTS',
+            message=(
+                'Neither the `kpoints` nor the `kpoints_distance` input '
+                'was specified.'
+            )
+        )
+        spec.exit_code(
+            203, 
+            'ERROR_INVALID_INPUT_RESOURCES',
+            message=(
+                'Neither the `options` nor `automatic_parallelization` '
+                'input was specified. This exit status has been deprecated as '
+                'the check it corresponded to was incorrect.'
+            )
+        )
+        spec.exit_code(
+            204, 
+            'ERROR_INVALID_INPUT_RESOURCES_UNDERSPECIFIED',
+            message=(
+                'The `metadata.options` did not specify both '
+                '`resources.num_machines` and `max_wallclock_seconds`. '
+                'This exit status has been deprecated as the check it '
+                'corresponded to was incorrect.'
+            )
+        )
+        spec.exit_code(
+            210, 
+            'ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_MISSING_KEY',
+            message=(
+                'Required key for `automatic_parallelization` was not '
+                'specified. This exit status has been deprecated as the '
+                'automatic parallellization feature was removed.'
+            )
+        )
+        spec.exit_code(
+            211, 
+            'ERROR_INVALID_INPUT_AUTOMATIC_PARALLELIZATION_UNRECOGNIZED_KEY',
+            message=(
+                'Unrecognized keys were specified for '
+                '`automatic_parallelization`. This exit status has been '
+                'deprecated as the automatic parallellization feature was '
+                'removed.'
+            )
+        )
+        spec.exit_code(
+            300, 
+            'ERROR_UNRECOVERABLE_FAILURE',
+            message=(
+                'The calculation failed with an unidentified unrecoverable '
+                'error.'
+            )
+        )
+        spec.exit_code(
+            310, 
+            'ERROR_KNOWN_UNRECOVERABLE_FAILURE',
+            message=(
+                'The calculation failed with a known unrecoverable error.'
+            )
+        )
+        spec.exit_code(
+            320, 
+            'ERROR_INITIALIZATION_CALCULATION_FAILED',
+            message='The initialization calculation failed.'
+        )
+        spec.exit_code(
+            501, 
+            'ERROR_IONIC_CONVERGENCE_REACHED_EXCEPT_IN_FINAL_SCF',
+            message=(
+                'Then ionic minimization cycle converged but the thresholds '
+                'are exceeded in the final SCF.'
+            )
+        )
+        spec.exit_code(
+            710, 
+            'WARNING_ELECTRONIC_CONVERGENCE_NOT_REACHED',
+            message=(
+                'The electronic minimization cycle did not reach '
+                'self-consistency, but `scf_must_converge` is `False` and/or '
+                '`electron_maxstep` is 0.'
+            )
+        )
         # yapf: enable
 
     @classmethod
     def get_protocol_filepath(cls):
-        """Return ``pathlib.Path`` to the ``.yaml`` file that defines the protocols."""
-        from aiida_quantumespresso.workflows.protocols import pw as pw_protocols
+        """
+        Return ``pathlib.Path`` to the ``.yaml`` file that defines 
+        the protocols.
+        """
+        from ..protocols import pw as pw_protocols
         from importlib_resources import files
 
         return files(pw_protocols) / "base.yaml"
@@ -160,20 +256,42 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         options=None,
         **_,
     ):
-        """Return a builder prepopulated with inputs selected according to the chosen protocol.
-        :param code: the ``Code`` instance configured for the ``quantumespresso.pw`` plugin.
-        :param structure: the ``StructureData`` instance to use.
-        :param protocol: protocol to use, if not specified, the default will be used.
-        :param overrides: optional dictionary of inputs to override the defaults of the protocol.
-        :param electronic_type: indicate the electronic character of the system through ``ElectronicType`` instance.
-        :param spin_type: indicate the spin polarization type to use through a ``SpinType`` instance.
-        :param initial_magnetic_moments: optional dictionary that maps the initial magnetic moment of each kind to a
-            desired value for a spin polarized calculation. Note that in case the ``starting_magnetization`` is also
-            provided in the ``overrides``, this takes precedence over the values provided here. In case neither is
-            provided and ``spin_type == SpinType.COLLINEAR``, an initial guess for the magnetic moments is used.
-        :param options: A dictionary of options that will be recursively set for the ``metadata.options`` input of all
-            the ``CalcJobs`` that are nested in this work chain.
-        :return: a process builder instance with all inputs defined ready for launch.
+        """
+        Return a builder prepopulated with inputs selected according to the 
+        chosen protocol.
+
+        :param code: 
+            the ``Code`` instance configured for the ``quantumespresso.pw`` 
+            plugin.
+        :param structure: 
+            the ``StructureData`` instance to use.
+        :param protocol: 
+            protocol to use, if not specified, the default will be used.
+        :param overrides: 
+            optional dictionary of inputs to override the defaults 
+            of the protocol.
+        :param electronic_type: 
+            indicate the electronic character of the system through 
+            `ElectronicType`` instance.
+        :param spin_type: 
+            indicate the spin polarization type to use through a 
+            ``SpinType`` instance.
+        :param initial_magnetic_moments: 
+            optional dictionary that maps the initial magnetic moment of each 
+            kind to a desired value for a spin polarized calculation. Note 
+            that in case the ``starting_magnetization`` is also provided in 
+            the ``overrides``, this takes precedence over the values provided 
+            here. In case neither is provided and 
+            ``spin_type == SpinType.COLLINEAR``, an initial guess for the 
+            magnetic moments is used.
+        :param options: 
+            A dictionary of options that will be recursively set for the 
+            ``metadata.options`` input of all the ``CalcJobs`` that are 
+            nested in this work chain.
+
+        :return: 
+            a process builder instance with all inputs defined ready 
+            for launch.
         """
         from aiida_quantumespresso.workflows.protocols.utils import (
             get_starting_magnetization,
@@ -204,6 +322,9 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
 
         meta_parameters = inputs.pop("meta_parameters")
         pseudo_family = inputs.pop("pseudo_family")
+        metadata = inputs.pop("metadata", {})
+        metadata['options'] = options
+        environ = inputs.get("environ")
 
         natoms = len(structure.sites)
 
@@ -263,11 +384,13 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
 
         # pylint: disable=no-member
         builder = cls.get_builder()
+        print(f'{code.computer=}')
         builder.pw["code"] = code
         builder.pw["pseudos"] = pseudos
         builder.pw["structure"] = structure
         builder.pw["parameters"] = orm.Dict(dict=parameters)
         builder.pw["metadata"] = metadata
+        builder.pw["environ_parameters"] = environ
         if "settings" in inputs["pw"]:
             builder.pw["settings"] = orm.Dict(dict=inputs["pw"]["settings"])
         if "parallelization" in inputs["pw"]:
@@ -286,13 +409,17 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
         return builder
 
     def setup(self):
-        """Call the ``setup`` of the ``BaseRestartWorkChain`` and create the inputs dictionary in ``self.ctx.inputs``.
+        """
+        Call the ``setup`` of the ``BaseRestartWorkChain`` and create the 
+        inputs dictionary in ``self.ctx.inputs``.
 
-        This ``self.ctx.inputs`` dictionary will be used by the ``BaseRestartWorkChain`` to submit the calculations
-        in the internal loop.
+        This ``self.ctx.inputs`` dictionary will be used by the 
+        ``BaseRestartWorkChain`` to submit the calculations in the 
+        internal loop.
 
-        The ``parameters`` and ``settings`` input ``Dict`` nodes are converted into a regular dictionary and the
-        default namelists for the ``parameters`` are set to empty dictionaries if not specified.
+        The ``parameters`` and ``settings`` input ``Dict`` nodes are 
+        converted into a regular dictionary and the default namelists for 
+        the ``parameters`` are set to empty dictionaries if not specified.
         """
         super().setup()
         self.ctx.inputs = AttributeDict(self.exposed_inputs(EnvPwCalculation, "pw"))

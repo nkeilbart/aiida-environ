@@ -40,6 +40,16 @@ default_inputs:
                 pbc_dim: 0
                 solver: 'cg'
                 tol: 1.E-10
+    phonopy:
+        parameters:
+            EIGENVECTORS: True
+            DIM: [1,1,1]
+            MESH: [1,1,1]
+            GAMMA_CENTER: True
+            FC_SYMMETRY: True
+        metadata:
+            options:
+                resources: 1
 default_protocol: moderate
 protocols:
     moderate:
