@@ -12,7 +12,7 @@ from aiida_quantumespresso.calculations.pw import PwCalculation
 from aiida_quantumespresso.utils.convert import convert_input_to_namelist_entry
 
 from aiida_environ.data.charge import EnvironChargeData
-
+from aiida_environ.data.dielectric import EnvironDielectricData
 
 class EnvPwCalculation(PwCalculation):
     """`CalcJob` implementation for the pw.x code of Quantum ESPRESSO + Environ."""
@@ -48,7 +48,7 @@ class EnvPwCalculation(PwCalculation):
         )
         spec.input(
             'environ_dielectric',
-            valid_type=EnvDielectricData,
+            valid_type=EnvironDielectricData,
             required=False,
             help='Dielectric regions'
         )
@@ -71,7 +71,6 @@ class EnvPwCalculation(PwCalculation):
             settings = {}
         input_filecontent = self._generate_environinputdata(self.inputs.environ_parameters, self.inputs.structure, settings)
 
-        # TODO: update the parameters with the number of ext charges
         if 'external_charges' in self.inputs:
             input_filecontent += self.inputs.external_charges.environ_output()
             self.inputs.environ_parameters['ENVIRON']['env_external_charges'] = len(self.inputs['external_charges'])
