@@ -54,6 +54,7 @@ tests = [
 
 [project.entry-points.'aiida.data']
 "environ.charges" = "aiida_environ.data.charge:EnvironChargeData"
+"environ.dielectric" = "aiida_environ.data.dielectric:EnvironDielectricData"
 
 [project.entry-points.'aiida.parsers']
 "environ.pw" = "aiida_environ.parsers.pw:EnvPwParser"
