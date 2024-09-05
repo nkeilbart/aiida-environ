@@ -264,7 +264,7 @@ class EnvPhononWorkChain(WorkChain, ProtocolMixin):
         )
         
         scf.pop('clean_workdir', None)
-        scf['pw']['environ_parameters'] = environ
+        scf['pw']['environ_parameters'] = environ['parameters']
         phonopy = inputs.get('phonopy', None)
         phonopy['code'] = phonopy_code
         phonopy['metadata']['options'] = options
@@ -356,6 +356,8 @@ class EnvPhononWorkChain(WorkChain, ProtocolMixin):
         inputs.metadata.label = key
         inputs.metadata.call_link_label = key
         inputs.clean_workdir = orm.Bool(False)  # the folder is needed for next calculations
+
+        print(inputs)
 
         node = self.submit(EnvPwBaseWorkChain, **inputs)
         self.to_context(**{key: node})
