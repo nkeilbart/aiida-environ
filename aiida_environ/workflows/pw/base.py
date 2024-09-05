@@ -384,7 +384,6 @@ class EnvPwBaseWorkChain(ProtocolMixin, BaseRestartWorkChain):
 
         # pylint: disable=no-member
         builder = cls.get_builder()
-        print(f'{code.computer=}')
         builder.pw["code"] = code
         builder.pw["pseudos"] = pseudos
         builder.pw["structure"] = structure
