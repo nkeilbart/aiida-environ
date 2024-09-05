@@ -43,7 +43,6 @@ parameters = make_simple_parameters()
 parameters['CONTROL']['calculation'] = 'relax'
 
 builder.base.pw.parameters = parameters
-builder.environ_parameters = make_simple_environ_parameters()
 
 calc = submit(builder)
 print(f'EnvPwRelax<{calc.pk}> submitted.')
