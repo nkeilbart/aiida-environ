@@ -30,7 +30,7 @@ structure = StructureData(ase=atoms)
 
 options = {
     'resources' : {
-        'tot_num_mpiprocs': 4
+        'tot_num_mpiprocs': 1
     }
 }
 
@@ -44,9 +44,6 @@ builder = workchain.get_builder_from_protocol(
 
 builder.metadata.label = "environ phonon relax example"
 builder.metadata.description = "environ.pw with phonopy relax"
-
-builder.base.pw.parameters = make_simple_parameters()
-builder.base.pw.environ_parameters = make_simple_environ_parameters()
 
 calc = submit(builder)
 print(f'EnvRelaxPhonon<{calc.pk}> submitted to the queue.')
