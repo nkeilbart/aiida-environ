@@ -48,7 +48,10 @@ class EnvRelaxPhononWorkChain(WorkChain, ProtocolMixin):
         #)
         spec.expose_inputs(
             PwRelaxWorkChain,
-            exclude=('base.pw.environ_parameters',),
+            exclude=(
+                'base',
+                'base_final_scf'
+            ),
             namespace_options={
                 'help': (
                     'Inputs for the `PwRelaxWorkChain` that are shared in '
@@ -124,11 +127,11 @@ class EnvRelaxPhononWorkChain(WorkChain, ProtocolMixin):
         )
         spec.expose_outputs(
             PwRelaxWorkChain,
-            namespace='vacuum.scf'
+            namespace='environ.vacuum'
         )
         spec.expose_outputs(
             PwRelaxWorkChain,
-            namespace='solution.scf'
+            namespace='environ.solution'
         )
         spec.expose_outputs(
             PhononWorkChain,
@@ -275,8 +278,6 @@ class EnvRelaxPhononWorkChain(WorkChain, ProtocolMixin):
         environ_input['ELECTROSTATIC']['solver'] = 'direct'
         vacuum['base']['pw']['environ_parameters'] = orm.Dict(dict=environ_input)
 
-        print(f'{code.computer=}')
-        print(f'{phonopy_code.computer=}')
         builder.code = code
         builder.phonopy_code = phonopy_code
         builder.vacuum = vacuum
