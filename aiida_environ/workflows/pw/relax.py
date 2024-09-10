@@ -17,44 +17,14 @@ def validate_inputs(inputs, _):
     """Validate the top level namespace."""
     parameters = inputs["base"]["pw"]["parameters"].get_dict()
 
-    # if "relaxation_scheme" not in inputs and "calculation" not in parameters.get(
-    #     "CONTROL", {}
-    # ):
-    #     return "The parameters in `base.pw.parameters` do not specify the required key `CONTROL.calculation`."
     if 'calculation' not in parameters.get('CONTROL', {}):
         return 'The parameters in `base.pw.parameters` do not specify the required key `CONTROL.calculation`.'
 
 
-# def validate_final_scf(value, _):
-#     """Validate the final scf input."""
-#     if isinstance(value, orm.Bool) and value:
-#         import warnings
-#
-#         from aiida.common.warnings import AiidaDeprecationWarning
-#
-#         warnings.warn(
-#             "this input is deprecated and will be removed. If you want to run a final scf, specify the inputs that "
-#             "should be used in the `base_final_scf` namespace.",
-#             AiidaDeprecationWarning,
-#         )
-
-
-# def validate_relaxation_scheme(value, _):
-#     """Validate the relaxation scheme input."""
-#     if value:
-#         import warnings
-#
-#         from aiida.common.warnings import AiidaDeprecationWarning
-#
-#         warnings.warn(
-#             "the `relaxation_scheme` input is deprecated and will be removed. Use the `get_builder_from_protocol` "
-#             "instead to obtain a prepopulated builder using the `RelaxType` enum.",
-#             AiidaDeprecationWarning,
-#         )
-
-
 class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
-    """Workchain to relax a structure using Quantum ESPRESSO pw.x."""
+    """
+    Workchain to relax a structure using Quantum ESPRESSO pw.x with Environ.
+    """
 
     @classmethod
     def define(cls, spec):
@@ -64,7 +34,11 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
         spec.expose_inputs(
             PwBaseWorkChain, 
             namespace = 'base',
-            exclude = ('clean_workdir', 'pw.structure', 'pw.parent_folder'),
+            exclude = (
+                'clean_workdir', 
+                'pw.structure', 
+                'pw.parent_folder'
+            ),
             namespace_options = {
                 'help': ('Inputs for the `EnvPwBaseWorkChain` for the main relax '
                          'loop.')
@@ -85,22 +59,6 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
             valid_type = orm.StructureData, 
             help = 'The inputs structure.'
         )
-        # spec.input(
-        #     'final_scf',
-        #     valid_type = orm.Bool,
-        #     default = lambda: orm.Bool(False),
-        #     validator = validate_final_scf,
-        #     help = ('If `True`, a final SCF calculation will be performed on '
-        #             'the successfully relaxed structure.')
-        # )
-        # spec.input(
-        #     'relaxation_scheme',
-        #     valid_type = orm.Str,
-        #     required = False,
-        #     validator = validate_relaxation_scheme,
-        #     help = ('The relaxation scheme to use: choose either `relax` '
-        #             'or `vc-relax` for variable cell relax.')
-        # )
         spec.input(
             'meta_convergence', 
             valid_type = orm.Bool, 
@@ -152,7 +110,10 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
             'ERROR_SUB_PROCESS_FAILED_FINAL_SCF',
             message='the final scf PwBaseWorkChain sub process failed'
         )
-        spec.expose_outputs(PwBaseWorkChain,exclude=('output_structure',))
+        spec.expose_outputs(
+            PwBaseWorkChain,
+            exclude=('output_structure',)
+        )
         spec.output(
             'output_structure', 
             valid_type=orm.StructureData, 
@@ -163,7 +124,10 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
 
     @classmethod
     def get_protocol_filepath(cls):
-        """Return ``pathlib.Path`` to the ``.yaml`` file that defines the protocols."""
+        """
+        Return ``pathlib.Path`` to the ``.yaml`` file that defines 
+        the protocols.
+        """
         from importlib_resources import files
 
         from ..protocols import pw as pw_protocols
@@ -180,17 +144,26 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
         options=None,
         **kwargs,
     ):
-        """Return a builder prepopulated with inputs selected according to the chosen protocol.
+        """
+        Return a builder prepopulated with inputs selected according to the 
+        chosen protocol.
 
-        :param code: the ``Code`` instance configured for the ``quantumespresso.pw`` plugin.
+        :param code: the ``Code`` instance configured for the 
+                     ``quantumespresso.pw`` plugin.
         :param structure: the ``StructureData`` instance to use.
-        :param protocol: protocol to use, if not specified, the default will be used.
-        :param overrides: optional dictionary of inputs to override the defaults of the protocol.
-        :param relax_type: the relax type to use: should be a value of the enum ``common.types.RelaxType``.
-        :param options: A dictionary of options that will be recursively set for the ``metadata.options`` input of all
-            the ``CalcJobs`` that are nested in this work chain.
-        :param kwargs: additional keyword arguments that will be passed to the ``get_builder_from_protocol`` of all the
-            sub processes that are called by this workchain.
+        :param protocol: protocol to use, if not specified, the default will 
+                         be used.
+        :param overrides: optional dictionary of inputs to override the 
+                          defaults of the protocol.
+        :param relax_type: the relax type to use: should be a value of the 
+                           enum ``common.types.RelaxType``.
+        :param options: A dictionary of options that will be recursively set 
+                        for the ``metadata.options`` input of all the 
+                        ``CalcJobs`` that are nested in this work chain.
+        :param kwargs: additional keyword arguments that will be passed to 
+                       the ``get_builder_from_protocol`` of all the sub 
+                       processes that are called by this workchain.
+
         :return: a process builder instance with all inputs defined ready for launch.
         """
         type_check(relax_type, RelaxType)
@@ -200,10 +173,16 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
         environ = inputs.get("environ", None)
 
         base = PwBaseWorkChain.get_builder_from_protocol(
-            *args, overrides=inputs.get("base", None), **kwargs
+            *args, 
+            overrides=inputs.get("base", None), 
+            options = options,
+            **kwargs
         )
         base_final_scf = PwBaseWorkChain.get_builder_from_protocol(
-            *args, overrides=inputs.get("base_final_scf", None), **kwargs
+            *args, 
+            overrides=inputs.get("base_final_scf", None), 
+            options = options,
+            **kwargs
         )
 
         base["pw"]["environ_parameters"] = orm.Dict(dict=environ["parameters"])
@@ -214,8 +193,9 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
         base_final_scf["pw"].pop("structure", None)
         base_final_scf.pop("clean_workdir", None)
 
-        # Quantum ESPRESSO currently only supports optimization of the volume for simple cubic systems. It requires
-        # to set `ibrav=1` or the code will except.
+        # Quantum ESPRESSO currently only supports optimization of the volume 
+        # for simple cubic systems. It requires to set `ibrav=1` or the code 
+        # will except.
         if relax_type in (RelaxType.VOLUME, RelaxType.POSITIONS_VOLUME):
             raise ValueError(f"relax type `{relax_type} is not yet supported.")
 
@@ -253,16 +233,21 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
                 (True, True, False): '2Dxy',
             }
             if structure.pbc in pbc_cell_dofree_map:
-                base.pw.parameters['CELL']['cell_dofree'] = pbc_cell_dofree_map[structure.pbc]
+                base.pw.parameters['CELL']['cell_dofree'] = \
+                    pbc_cell_dofree_map[structure.pbc]
             else:
-                raise ValueError(f'Structures with periodic boundary conditions `{structure.pbc}` are not supported.')
+                raise ValueError((
+                    f'Structures with periodic boundary conditions '
+                    f'`{structure.pbc}` are not supported.'
+                ))
 
         builder = cls.get_builder()
         builder.base = base
         builder.base_final_scf = base_final_scf
         builder.structure = structure
         builder.clean_workdir = orm.Bool(inputs["clean_workdir"])
-        builder.max_meta_convergence_iterations = orm.Int(inputs["max_meta_convergence_iterations"])
+        builder.max_meta_convergence_iterations = \
+            orm.Int(inputs["max_meta_convergence_iterations"])
         builder.meta_convergence = orm.Bool(inputs["meta_convergence"])
         builder.volume_convergence = orm.Float(inputs["volume_convergence"])
 
@@ -312,41 +297,27 @@ class EnvPwRelaxWorkChain(ProtocolMixin, WorkChain):
             self.ctx.meta_convergence = False
 
         # Add the final scf inputs to the context if a final scf should be run
-        if self.inputs.final_scf and "base_final_scf" in self.inputs:
-            raise ValueError(
-                "cannot specify `final_scf=True` and `base_final_scf` at the same time."
-            )
-        elif self.inputs.final_scf:
+        if 'base_final_scf' in self.inputs:
             self.ctx.final_scf_inputs = AttributeDict(
-                self.exposed_inputs(PwBaseWorkChain, namespace="base")
-            )
-        elif "base_final_scf" in self.inputs:
-            self.ctx.final_scf_inputs = AttributeDict(
-                self.exposed_inputs(PwBaseWorkChain, namespace="base_final_scf")
-            )
-
-        if "final_scf_inputs" in self.ctx:
-            if self.ctx.relax_inputs.pw.parameters["CONTROL"]["calculation"] == "scf":
-                self.report(
-                    "Work chain will not run final SCF when `calculation` is set to `scf` for the relaxation "
-                    "`PwBaseWorkChain`."
+                self.exposed_inputs(
+                    PwBaseWorkChain, 
+                    namespace='base_final_scf'
+                    )
                 )
-                self.ctx.pop("final_scf_inputs")
+
+            if self.ctx.relax_inputs.pw.parameters['CONTROL'].get('calculation', 'scf') == 'scf':
+                self.report(
+                    'Work chain will not run final SCF when `calculation` is set to `scf` for the relaxation '
+                    '`PwBaseWorkChain`.'
+                )
+                self.ctx.pop('final_scf_inputs')
 
             else:
-                self.ctx.final_scf_inputs.pw.parameters = (
-                    self.ctx.final_scf_inputs.pw.parameters.get_dict()
-                )
+                self.ctx.final_scf_inputs.pw.parameters = self.ctx.final_scf_inputs.pw.parameters.get_dict()
 
-                self.ctx.final_scf_inputs.pw.parameters.setdefault("CONTROL", {})
-                self.ctx.final_scf_inputs.pw.parameters["CONTROL"][
-                    "calculation"
-                ] = "scf"
-                self.ctx.final_scf_inputs.pw.parameters["CONTROL"][
-                    "restart_mode"
-                ] = "from_scratch"
-                self.ctx.final_scf_inputs.pw.parameters.pop("CELL", None)
-                self.ctx.final_scf_inputs.metadata.call_link_label = "final_scf"
+                self.ctx.final_scf_inputs.pw.parameters.setdefault('CONTROL', {})
+                self.ctx.final_scf_inputs.metadata.call_link_label = 'final_scf'
+
 
     def should_run_relax(self):
         """Return whether a relaxation workchain should be run.

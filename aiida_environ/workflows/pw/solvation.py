@@ -15,12 +15,14 @@ def subtract_energy(x, y):
 
 
 class PwSolvationWorkChain(WorkChain):
-    """WorkChain to compute the solvation energy for a given structure using Quantum ESPRESSO pw.x + ENVIRON
+    """
+    WorkChain to compute the solvation energy for a given structure using 
+    Quantum ESPRESSO pw.x + ENVIRON
 
     Expects one of two possible inputs by the user.
-    1) An environ-parameter dictionary as per a regular environ calculation
-    2) An environ-parameter dictionary with shared variables and one/two dictionaries for custom vacuum/solution
-    input.
+    1) An environ-parameter dictionary as per a regular environ calculation.
+    2) An environ-parameter dictionary with shared variables and one/two 
+       dictionaries for custom vacuum/solution input.
     """
 
     @classmethod
@@ -30,7 +32,9 @@ class PwSolvationWorkChain(WorkChain):
         spec.expose_inputs(
             EnvPwBaseWorkChain,
             namespace="base",
-            namespace_options={"help": "Inputs for the `EnvPwCalculation`."},
+            namespace_options={
+                "help": "Inputs for the `EnvPwCalculation`."
+            },
         )
         spec.input(
             "environ_vacuum",
@@ -48,7 +52,9 @@ class PwSolvationWorkChain(WorkChain):
             "energy_vacuum",
             valid_type=Float,
             required=False,
-            help="The vacuum energy in eV, if provided, skips the vacuum calculation",
+            help=(
+                "The vacuum energy in eV, if provided, skips the vacuum "
+                "calculation"),
         )
         spec.outline(
             cls.setup,
