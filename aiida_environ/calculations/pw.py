@@ -12,7 +12,7 @@ from aiida_quantumespresso.calculations.pw import PwCalculation
 from aiida_quantumespresso.utils.convert import convert_input_to_namelist_entry
 
 from aiida_environ.data.charge import EnvironChargeData
-
+from aiida_environ.data.dielectric import EnvironDielectricData
 
 class EnvPwCalculation(PwCalculation):
     """`CalcJob` implementation for the pw.x code of Quantum ESPRESSO + Environ."""
@@ -46,9 +46,12 @@ class EnvPwCalculation(PwCalculation):
             required = False,
             help = 'External charges'
         )
-        # TODO add the EnvironDielectricData type too
-        # spec.input('environ_dielectric', valid_type=EnvDielectricData, required=False,
-        #    help='Dielectric regions')
+        spec.input(
+            'environ_dielectric',
+            valid_type=EnvironDielectricData,
+            required=False,
+            help='Dielectric regions'
+        )
 
     def prepare_for_submission(self, folder: Folder) -> CalcInfo:
         calcinfo = BasePwCpInputGenerator.prepare_for_submission(self, folder)
@@ -68,13 +71,12 @@ class EnvPwCalculation(PwCalculation):
             settings = {}
         input_filecontent = self._generate_environinputdata(self.inputs.environ_parameters, self.inputs.structure, settings)
 
-        # TODO: update the parameters with the number of ext charges
         if 'external_charges' in self.inputs:
             input_filecontent += self.inputs.external_charges.environ_output()
             self.inputs.environ_parameters['ENVIRON']['env_external_charges'] = len(self.inputs['external_charges'])
-        # if 'environ_dielectric' in self.inputs:
-        #     input_filecontent += self.inputs.environ_diectric.environ_output()
-        #     self.inputs.environ_parameters['ENVIRON']['env_dielectric_regions'] = len(self.inputs['environ_dielectric'])
+        if 'environ_dielectric' in self.inputs:
+            input_filecontent += self.inputs.environ_diectric.environ_output()
+            self.inputs.environ_parameters['ENVIRON']['env_dielectric_regions'] = len(self.inputs['environ_dielectric'])
         # write the environ input file (name is fixed)
         with folder.open('environ.in', 'w') as handle:
             handle.write(input_filecontent)
